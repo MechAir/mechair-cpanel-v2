@@ -215,8 +215,7 @@ function WiFiSettingsModal({
         <div className="flex gap-3 p-5 pt-0">
           <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
           <button onClick={handleSave} disabled={loading || !ssid.trim()}
-            className="flex-1 px-4 py-2.5 bg-[#2B8DB8] text-white rounded-xl text-sm font-medium hover:bg-[#2478a0] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            disabled={loading || !detectedType}>
+            className="flex-1 px-4 py-2.5 bg-[#2B8DB8] text-white rounded-xl text-sm font-medium hover:bg-[#2478a0] transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
             {saved ? (
               <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>Saved</>
             ) : loading ? (
@@ -516,9 +515,8 @@ function AddDeviceModal({
         </div>
         <div className="flex gap-3 p-6 pt-0">
           <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
-          <button onClick={handleSubmit} disabled={loading}
-            className="flex-1 px-4 py-2.5 bg-[#2B8DB8] text-white rounded-xl text-sm font-medium hover:bg-[#2478a0] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            disabled={loading || !detectedType}>
+          <button onClick={handleSubmit} disabled={loading || !detectedType}
+            className="flex-1 px-4 py-2.5 bg-[#2B8DB8] text-white rounded-xl text-sm font-medium hover:bg-[#2478a0] transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
             {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Registering...</> : 'Register Device'}
           </button>
         </div>
