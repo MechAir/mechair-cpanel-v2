@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { getUser, isSubAdmin, isSupervisor } from '@/utils/auth'
 import AddSupervisorModal from '@/components/AddSupervisorModal'
 import { getDeviceType } from '@/utils/deviceTypes'
+import { useIoT } from '@/utils/useIoT'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
 
@@ -399,6 +400,22 @@ function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoom
       .finally(() => setLoading(false))
   }, [deviceId])
 
+  // Live updates from device via IoT WebSocket
+  useIoT(
+    [`devices/${deviceId}/settings`],
+    useCallback(({ payload }) => {
+      if (payload['Room 1'] !== undefined) {
+        setSettings(prev => {
+          const updated = { ...prev }
+          mlhRooms.forEach(room => {
+            if (payload[room]) updated[room] = { ...prev[room], ...payload[room] }
+          })
+          return updated
+        })
+      }
+    }, [])
+  )
+
   const cur = settings[activeRoom]
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/timings`, { settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
@@ -437,6 +454,33 @@ function MlhManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomT
       .then(data => { if (data?.manualSettings) setSettings(prev => ({ ...prev, ...data.manualSettings })) })
       .finally(() => setLoading(false))
   }, [deviceId])
+
+  // Live updates from device via IoT WebSocket
+  useIoT(
+    [`devices/${deviceId}/settings`],
+    useCallback(({ payload }) => {
+      if (payload['Room 1'] !== undefined) {
+        setSettings(prev => {
+          const updated = { ...prev }
+          mlhRooms.forEach(room => {
+            if (payload[room]) {
+              updated[room] = {
+                ...prev[room],
+                manualCompressorOnTime: payload[room].manualCompressorOnValue !== undefined
+                  ? { value: payload[room].manualCompressorOnValue, unit: ['sec','min','hr'][payload[room].manualCompressorOnUnit ?? 0] as any }
+                  : prev[room].manualCompressorOnTime,
+                manualSovOnTime: payload[room].manualSovOnValue !== undefined
+                  ? { value: payload[room].manualSovOnValue, unit: ['sec','min','hr'][payload[room].manualSovOnUnit ?? 0] as any }
+                  : prev[room].manualSovOnTime,
+              }
+            }
+          })
+          return updated
+        })
+      }
+    }, [])
+  )
+
   const cur = settings[activeRoom]
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/manual-timings`, { manualSettings: settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
@@ -466,6 +510,23 @@ function MlhEnabledRoomsTab({ deviceId, readOnly }: { deviceId: string; readOnly
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [deviceId])
+
+  // Live updates from device via IoT WebSocket
+  useIoT(
+    [`devices/${deviceId}/enable_rooms`],
+    useCallback(({ payload }) => {
+      if (payload.r1 !== undefined) {
+        setEnabled({
+          'Room 1': payload.r1 ?? true,
+          'Room 2': payload.r2 ?? true,
+          'Room 3': payload.r3 ?? true,
+          'Room 4': payload.r4 ?? true,
+          'Room 5': payload.r5 ?? true,
+          'Room 6': payload.r6 ?? true,
+        })
+      }
+    }, [])
+  )
 
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/enabled-rooms`, { enabledRooms: enabled }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
