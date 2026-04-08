@@ -1,9 +1,10 @@
 'use client'
 import { getUser } from '@/utils/auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useToast, ToastContainer } from '@/components/useToast'
 import { getDeviceType } from '@/utils/deviceTypes'
+import { useIoT } from '@/utils/useIoT'
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 interface RoomData {
@@ -349,26 +350,39 @@ export default function DeviceRoomsPage() {
     fetchState()
   }, [isAuthenticated, deviceId])
 
-  // SSE — real-time updates
-  useEffect(() => {
-    if (!isAuthenticated || !deviceId) return
-    const es = new EventSource(`${API_BASE}/devices/${deviceId}/subscribe`)
-    es.onmessage = (e) => {
-      const payload = JSON.parse(e.data)
-      if (payload.type === 'state') {
-        setRooms(prev => payload.rooms.map((r: RoomData) => {
-          const existing = prev.find(p => p.id === r.id)
-          return existing ? { ...r, temp: existing.temp, humid: existing.humid, co2: existing.co2, c2h4: existing.c2h4, compOn: existing.compOn } : r
-        }))
-        setIsAuto(payload.mode === 'auto')
+  // IoT WebSocket — real-time updates
+  useIoT(
+    [`devices/${deviceId}/readings`, `devices/${deviceId}/state`],
+    useCallback(({ topic, payload }) => {
+      if (topic.endsWith('/readings')) {
+        // Live sensor data from device
+        if (payload.rooms) {
+          const reading: Record<string, any> = {}
+          payload.rooms.forEach((r: any) => {
+            reading[`room${r.id}`] = {
+              temp: r.temp,
+              humidity: r.humidity,
+              compressor: r.comp,
+              sov: r.sov,
+            }
+          })
+          setRooms(prev => applyReadingToRooms(prev, reading))
+        }
       }
-      if (payload.type === 'reading') {
-        setRooms(prev => applyReadingToRooms(prev, payload.reading))
+      if (topic.endsWith('/state')) {
+        // Live relay state from device
+        if (payload.rooms) {
+          setRooms(prev => prev.map(room => {
+            const idx = room.id.replace('room-', '')
+            const r = payload.rooms.find((x: any) => x.id === parseInt(idx))
+            if (!r) return room
+            return { ...room, isOn: r.on, compOn: r.comp, sovOn: r.sov }
+          }))
+        }
+        if (payload.mode) setIsAuto(payload.mode === 'auto')
       }
-    }
-    es.onerror = () => es.close()
-    return () => es.close()
-  }, [isAuthenticated, deviceId])
+    }, [])
+  )
 
   // Server update
   const updateRoomsOnServer = async (updatedRooms: RoomData[]) => {
