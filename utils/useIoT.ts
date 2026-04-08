@@ -4,7 +4,6 @@ import { useEffect, useRef, useCallback } from 'react'
 
 // ─── AWS IoT WebSocket Config ─────────────────────────────────────────────────
 const IOT_ENDPOINT = 'a92woj9ctycen-ats.iot.ap-south-1.amazonaws.com'
-const IDENTITY_POOL_ID = 'ap-south-1:f8c65bba-cd6c-4776-9996-b7d7bfab6ac8'
 const REGION = 'ap-south-1'
 
 // ─── SigV4 WebSocket URL signer ───────────────────────────────────────────────
@@ -68,37 +67,10 @@ async function getSignedUrl(credentials: {
 
 // ─── Cognito Identity credentials ─────────────────────────────────────────────
 async function getCognitoCredentials() {
-  // Step 1: Get identity id
-  const idRes = await fetch(`https://cognito-identity.${REGION}.amazonaws.com/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Target': 'AmazonCognitoIdentity.GetId',
-    },
-    body: JSON.stringify({
-      IdentityPoolId: IDENTITY_POOL_ID,
-    }),
-  })
-  const idJson = await idRes.json()
-  if (!idJson.IdentityId) throw new Error('Cognito GetId failed: ' + JSON.stringify(idJson))
-  const { IdentityId } = idJson
-
-  // Step 2: Get credentials for identity
-  const credRes = await fetch(`https://cognito-identity.${REGION}.amazonaws.com/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Target': 'AmazonCognitoIdentity.GetCredentialsForIdentity',
-    },
-    body: JSON.stringify({ IdentityId }),
-  })
-  const credJson = await credRes.json()
-  if (!credJson.Credentials) throw new Error('Cognito GetCredentials failed: ' + JSON.stringify(credJson))
-  return {
-    accessKeyId: credJson.Credentials.AccessKeyId,
-    secretAccessKey: credJson.Credentials.SecretKey,
-    sessionToken: credJson.Credentials.SessionToken,
-  }
+  const res = await fetch('https://1xlkirrex9.execute-api.ap-south-1.amazonaws.com/prod/devices/iot-credentials')
+  const data = await res.json()
+  if (!data.success) throw new Error('Failed to get IoT credentials: ' + JSON.stringify(data))
+  return data.data
 }
 
 // ─── MQTT over WebSocket (minimal implementation) ─────────────────────────────
