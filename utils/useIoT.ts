@@ -77,7 +77,6 @@ async function getCognitoCredentials() {
     },
     body: JSON.stringify({
       IdentityPoolId: IDENTITY_POOL_ID,
-      AccountId: '532260185847',
     }),
   })
   const { IdentityId } = await idRes.json()
