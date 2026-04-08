@@ -67,7 +67,7 @@ async function getSignedUrl(credentials: {
 
 // ─── Cognito Identity credentials ─────────────────────────────────────────────
 async function getCognitoCredentials() {
-  const res = await fetch('https://1xlkirrex9.execute-api.ap-south-1.amazonaws.com/prod/devices/iot-credentials')
+  const res = await fetch('https://1xlkirrex9.execute-api.ap-south-1.amazonaws.com/prod/devices/MLH25010101/iot-credentials')
   const data = await res.json()
   if (!data.success) throw new Error('Failed to get IoT credentials: ' + JSON.stringify(data))
   return data.data
