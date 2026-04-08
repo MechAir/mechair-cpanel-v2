@@ -79,7 +79,9 @@ async function getCognitoCredentials() {
       IdentityPoolId: IDENTITY_POOL_ID,
     }),
   })
-  const { IdentityId } = await idRes.json()
+  const idJson = await idRes.json()
+  if (!idJson.IdentityId) throw new Error('Cognito GetId failed: ' + JSON.stringify(idJson))
+  const { IdentityId } = idJson
 
   // Step 2: Get credentials for identity
   const credRes = await fetch(`https://cognito-identity.${REGION}.amazonaws.com/`, {
@@ -90,11 +92,12 @@ async function getCognitoCredentials() {
     },
     body: JSON.stringify({ IdentityId }),
   })
-  const { Credentials } = await credRes.json()
+  const credJson = await credRes.json()
+  if (!credJson.Credentials) throw new Error('Cognito GetCredentials failed: ' + JSON.stringify(credJson))
   return {
-    accessKeyId: Credentials.AccessKeyId,
-    secretAccessKey: Credentials.SecretKey,
-    sessionToken: Credentials.SessionToken,
+    accessKeyId: credJson.Credentials.AccessKeyId,
+    secretAccessKey: credJson.Credentials.SecretKey,
+    sessionToken: credJson.Credentials.SessionToken,
   }
 }
 
