@@ -65,12 +65,39 @@ async function getSignedUrl(credentials: {
   return `wss://${host}/mqtt?${canonicalQuerystring}&X-Amz-Signature=${signature}`
 }
 
-// ─── Cognito Identity credentials ─────────────────────────────────────────────
+// ─── Cognito Identity credentials (direct, no Lambda) ────────────────────────
+const IDENTITY_POOL_ID = 'ap-south-1:f8c65bba-cd6c-4776-9996-b7d7bfab6ac8'
+
 async function getCognitoCredentials() {
-  const res = await fetch('https://1xlkirrex9.execute-api.ap-south-1.amazonaws.com/prod/devices/MLH25010101/iot-credentials')
-  const data = await res.json()
-  if (!data.success) throw new Error('Failed to get IoT credentials: ' + JSON.stringify(data))
-  return data.data
+  // Step 1: Get Identity ID
+  const idRes = await fetch('https://cognito-identity.ap-south-1.amazonaws.com/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityService.GetId',
+    },
+    body: JSON.stringify({ IdentityPoolId: IDENTITY_POOL_ID }),
+  })
+  const idData = await idRes.json()
+  if (!idData.IdentityId) throw new Error('GetId failed: ' + JSON.stringify(idData))
+
+  // Step 2: Get credentials for that identity
+  const credRes = await fetch('https://cognito-identity.ap-south-1.amazonaws.com/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityService.GetCredentialsForIdentity',
+    },
+    body: JSON.stringify({ IdentityId: idData.IdentityId }),
+  })
+  const credData = await credRes.json()
+  if (!credData.Credentials) throw new Error('GetCredentials failed: ' + JSON.stringify(credData))
+
+  return {
+    accessKeyId: credData.Credentials.AccessKeyId,
+    secretAccessKey: credData.Credentials.SecretKey,
+    sessionToken: credData.Credentials.SessionToken,
+  }
 }
 
 // ─── MQTT over WebSocket (minimal implementation) ─────────────────────────────
