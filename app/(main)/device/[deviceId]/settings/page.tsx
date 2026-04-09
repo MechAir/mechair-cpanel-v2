@@ -402,7 +402,7 @@ function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoom
 
   // Live updates from device via IoT WebSocket
   useIoT(
-    [`devices/${deviceId}/settings`],
+    [`devices/${deviceId}/settings/timings`],
     useCallback(({ payload }) => {
       if (payload['Room 1'] !== undefined) {
         setSettings(prev => {
@@ -457,7 +457,7 @@ function MlhManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomT
 
   // Live updates from device via IoT WebSocket
   useIoT(
-    [`devices/${deviceId}/settings`],
+    [`devices/${deviceId}/settings/manual-timings`],
     useCallback(({ payload }) => {
       if (payload['Room 1'] !== undefined) {
         setSettings(prev => {
@@ -513,7 +513,7 @@ function MlhEnabledRoomsTab({ deviceId, readOnly }: { deviceId: string; readOnly
 
   // Live updates from device via IoT WebSocket
   useIoT(
-    [`devices/${deviceId}/enable_rooms`],
+    [`devices/${deviceId}/settings/enabled-rooms`],
     useCallback(({ payload }) => {
       if (payload.r1 !== undefined) {
         setEnabled({
