@@ -1,75 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 
-// ─── AWS IoT WebSocket Config ─────────────────────────────────────────────────
 const IOT_ENDPOINT = 'a92woj9ctycen-ats.iot.ap-south-1.amazonaws.com'
 const REGION = 'ap-south-1'
-
-// ─── SigV4 WebSocket URL signer ───────────────────────────────────────────────
-async function getSignedUrl(credentials: {
-  accessKeyId: string
-  secretAccessKey: string
-  sessionToken: string
-}): Promise<string> {
-  const { accessKeyId, secretAccessKey, sessionToken } = credentials
-
-  const now = new Date()
-  const amzdate = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z'
-  const datestamp = amzdate.slice(0, 8)
-
-  const host = IOT_ENDPOINT
-  const algorithm = 'AWS4-HMAC-SHA256'
-  const service = 'iotdevicegateway'
-  const credentialScope = `${datestamp}/${REGION}/${service}/aws4_request`
-
-  const enc = new TextEncoder()
-
-  async function hmac(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
-    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-    return crypto.subtle.sign('HMAC', cryptoKey, enc.encode(data))
-  }
-
-  async function sha256(data: string): Promise<string> {
-    const hash = await crypto.subtle.digest('SHA-256', enc.encode(data))
-    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
-  }
-
-  const canonicalQuerystring = [
-    `X-Amz-Algorithm=${algorithm}`,
-    `X-Amz-Credential=${encodeURIComponent(`${accessKeyId}/${credentialScope}`)}`,
-    `X-Amz-Date=${amzdate}`,
-    `X-Amz-Security-Token=${encodeURIComponent(sessionToken)}`,
-    `X-Amz-SignedHeaders=host`,
-  ].join('&')
-
-  const canonicalHeaders = `host:${host}\n`
-  const payloadHash = await sha256('')
-  const canonicalRequest = `GET\n/mqtt\n${canonicalQuerystring}\n${canonicalHeaders}\nhost\n${payloadHash}`
-  const stringToSign = `${algorithm}\n${amzdate}\n${credentialScope}\n${await sha256(canonicalRequest)}`
-
-  const signingKey = await hmac(
-    await hmac(
-      await hmac(
-        await hmac(enc.encode(`AWS4${secretAccessKey}`), datestamp),
-        REGION
-      ),
-      service
-    ),
-    'aws4_request'
-  )
-
-  const signature = Array.from(new Uint8Array(await hmac(signingKey, stringToSign)))
-    .map(b => b.toString(16).padStart(2, '0')).join('')
-
-  return `wss://${host}/mqtt?${canonicalQuerystring}&X-Amz-Signature=${signature}`
-}
-
-// ─── Cognito Identity credentials (direct, no Lambda) ────────────────────────
 const IDENTITY_POOL_ID = 'ap-south-1:f8c65bba-cd6c-4776-9996-b7d7bfab6ac8'
 
 async function getCognitoCredentials() {
-  // Step 1: Get or reuse cached Identity ID
   let identityId = typeof window !== 'undefined' ? localStorage.getItem('mechair_identity_id') : null
 
   if (!identityId) {
@@ -87,12 +24,8 @@ async function getCognitoCredentials() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('mechair_identity_id', identityId!)
     }
-    console.log('[IoT] New Cognito Identity ID created:', identityId)
-  } else {
-    console.log('[IoT] Reusing cached Cognito Identity ID:', identityId)
   }
 
-  // Step 2: Get credentials for that identity
   const credRes = await fetch('https://cognito-identity.ap-south-1.amazonaws.com/', {
     method: 'POST',
     headers: {
@@ -111,76 +44,113 @@ async function getCognitoCredentials() {
   }
 }
 
-// ─── MQTT over WebSocket (minimal implementation) ─────────────────────────────
+// ─── Proper SigV4 signed URL for IoT Core WebSocket ──────────────────────────
+async function getSignedUrl(creds: { accessKeyId: string; secretAccessKey: string; sessionToken: string }) {
+  const { accessKeyId, secretAccessKey, sessionToken } = creds
+  const now = new Date()
+  const amzdate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '')
+  const datestamp = amzdate.slice(0, 8)
+
+  const service = 'iotdevicegateway'
+  const algorithm = 'AWS4-HMAC-SHA256'
+  const credentialScope = `${datestamp}/${REGION}/${service}/aws4_request`
+
+  const enc = new TextEncoder()
+
+  async function sha256Hex(data: string) {
+    const hash = await crypto.subtle.digest('SHA-256', enc.encode(data))
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+
+  async function hmac(key: ArrayBuffer | Uint8Array, data: string) {
+    const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+    return crypto.subtle.sign('HMAC', cryptoKey, enc.encode(data))
+  }
+
+  // Canonical query params MUST be alphabetically sorted, and security token comes AFTER signing
+  const canonicalParams = [
+    ['X-Amz-Algorithm', algorithm],
+    ['X-Amz-Credential', `${accessKeyId}/${credentialScope}`],
+    ['X-Amz-Date', amzdate],
+    ['X-Amz-SignedHeaders', 'host'],
+  ]
+  canonicalParams.sort((a, b) => a[0].localeCompare(b[0]))
+
+  const canonicalQuerystring = canonicalParams
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&')
+
+  const canonicalHeaders = `host:${IOT_ENDPOINT}\n`
+  const payloadHash = await sha256Hex('')
+  const canonicalRequest = `GET\n/mqtt\n${canonicalQuerystring}\n${canonicalHeaders}\nhost\n${payloadHash}`
+  const stringToSign = `${algorithm}\n${amzdate}\n${credentialScope}\n${await sha256Hex(canonicalRequest)}`
+
+  const kDate = await hmac(enc.encode(`AWS4${secretAccessKey}`), datestamp)
+  const kRegion = await hmac(kDate, REGION)
+  const kService = await hmac(kRegion, service)
+  const kSigning = await hmac(kService, 'aws4_request')
+  const sigBuf = await hmac(kSigning, stringToSign)
+  const signature = Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+
+  // Session token is appended AFTER signing
+  return `wss://${IOT_ENDPOINT}/mqtt?${canonicalQuerystring}&X-Amz-Signature=${signature}&X-Amz-Security-Token=${encodeURIComponent(sessionToken)}`
+}
+
+// ─── MQTT packet encoding ────────────────────────────────────────────────────
 function encodeMqttConnect(clientId: string): Uint8Array {
-  const protocolName = 'MQTT'
-  const protocolLevel = 4 // MQTT 3.1.1
-  const connectFlags = 0x02 // Clean session
-  const keepAlive = 60
-
   const clientIdBytes = new TextEncoder().encode(clientId)
-  const remainingLength = 10 + clientIdBytes.length + 2
-
+  const remainingLength = 10 + 2 + clientIdBytes.length
   const buf = new Uint8Array(2 + remainingLength)
   let i = 0
-  buf[i++] = 0x10 // CONNECT
+  buf[i++] = 0x10
   buf[i++] = remainingLength
-  // Protocol name length
   buf[i++] = 0; buf[i++] = 4
-  // Protocol name
-  for (const c of protocolName) buf[i++] = c.charCodeAt(0)
-  buf[i++] = protocolLevel
-  buf[i++] = connectFlags
-  buf[i++] = (keepAlive >> 8) & 0xff; buf[i++] = keepAlive & 0xff
-  // Client ID length
+  'MQTT'.split('').forEach(c => (buf[i++] = c.charCodeAt(0)))
+  buf[i++] = 4
+  buf[i++] = 0x02
+  buf[i++] = 0; buf[i++] = 60
   buf[i++] = (clientIdBytes.length >> 8) & 0xff
   buf[i++] = clientIdBytes.length & 0xff
-  // Client ID
-  for (const b of clientIdBytes) buf[i++] = b
+  clientIdBytes.forEach(b => (buf[i++] = b))
   return buf
 }
 
 function encodeMqttSubscribe(topic: string, packetId: number): Uint8Array {
   const topicBytes = new TextEncoder().encode(topic)
   const remainingLength = 2 + 2 + topicBytes.length + 1
-
   const buf = new Uint8Array(2 + remainingLength)
   let i = 0
-  buf[i++] = 0x82 // SUBSCRIBE
+  buf[i++] = 0x82
   buf[i++] = remainingLength
   buf[i++] = (packetId >> 8) & 0xff; buf[i++] = packetId & 0xff
   buf[i++] = (topicBytes.length >> 8) & 0xff; buf[i++] = topicBytes.length & 0xff
-  for (const b of topicBytes) buf[i++] = b
-  buf[i++] = 0x00 // QoS 0
+  topicBytes.forEach(b => (buf[i++] = b))
+  buf[i++] = 0x00
   return buf
 }
 
 function decodeMqttPublish(data: ArrayBuffer): { topic: string; payload: string } | null {
   const buf = new Uint8Array(data)
-  if ((buf[0] & 0xf0) !== 0x30) return null // Not PUBLISH
+  if ((buf[0] & 0xf0) !== 0x30) return null
   let i = 1
-  // Decode remaining length
-  let multiplier = 1; let remainingLength = 0
-  do { remainingLength += (buf[i] & 127) * multiplier; multiplier *= 128 } while (buf[i++] & 128)
-  // Topic
+  let multiplier = 1
+  let remainingLength = 0
+  do {
+    remainingLength += (buf[i] & 127) * multiplier
+    multiplier *= 128
+  } while (buf[i++] & 128)
   const topicLen = (buf[i] << 8) | buf[i + 1]; i += 2
   const topic = new TextDecoder().decode(buf.slice(i, i + topicLen)); i += topicLen
-  // Payload
   const payload = new TextDecoder().decode(buf.slice(i))
   return { topic, payload }
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 export type IoTMessage = {
   topic: string
   payload: Record<string, any>
 }
 
-export function useIoT(
-  topics: string[],
-  onMessage: (msg: IoTMessage) => void
-) {
-  const wsRef = useRef<WebSocket | null>(null)
+export function useIoT(topics: string[], onMessage: (msg: IoTMessage) => void) {
   const onMessageRef = useRef(onMessage)
   onMessageRef.current = onMessage
 
@@ -191,15 +161,16 @@ export function useIoT(
 
     const connect = async () => {
       try {
-        const credentials = await getCognitoCredentials()
-        const url = await getSignedUrl(credentials)
+        const creds = await getCognitoCredentials()
+        const url = await getSignedUrl(creds)
+        console.log('[IoT] Connecting to WebSocket...')
 
         ws = new WebSocket(url, ['mqtt'])
-        wsRef.current = ws
         ws.binaryType = 'arraybuffer'
 
         ws.onopen = () => {
           if (destroyed) return
+          console.log('[IoT] WebSocket open, sending MQTT CONNECT')
           const clientId = `mechair-web-${Math.random().toString(36).slice(2)}`
           ws!.send(encodeMqttConnect(clientId))
         }
@@ -209,22 +180,21 @@ export function useIoT(
           const buf = event.data as ArrayBuffer
           const first = new Uint8Array(buf)[0]
 
-          // CONNACK (0x20) — subscribe to all topics
           if ((first & 0xf0) === 0x20) {
+            console.log('[IoT] MQTT CONNACK received, subscribing to', topics)
             topics.forEach((topic, idx) => {
               ws!.send(encodeMqttSubscribe(topic, idx + 1))
             })
-            // Ping every 30s to keep alive
             pingInterval = setInterval(() => {
               if (ws?.readyState === WebSocket.OPEN) {
-                ws.send(new Uint8Array([0xC0, 0x00])) // PINGREQ
+                ws.send(new Uint8Array([0xC0, 0x00]))
               }
             }, 30000)
           }
 
-          // PUBLISH — decode and call handler
           const msg = decodeMqttPublish(buf)
           if (msg) {
+            console.log('[IoT] Message on', msg.topic)
             try {
               const payload = JSON.parse(msg.payload)
               onMessageRef.current({ topic: msg.topic, payload })
@@ -232,20 +202,17 @@ export function useIoT(
           }
         }
 
-        ws.onclose = () => {
+        ws.onclose = (e) => {
+          console.log('[IoT] WebSocket closed, code:', e.code, 'reason:', e.reason)
           clearInterval(pingInterval)
-          if (!destroyed) {
-            // Reconnect after 3 seconds
-            setTimeout(connect, 3000)
-          }
+          if (!destroyed) setTimeout(connect, 3000)
         }
 
-        ws.onerror = () => {
-          ws?.close()
+        ws.onerror = (e) => {
+          console.error('[IoT] WebSocket error', e)
         }
-
       } catch (err) {
-        console.error('IoT connect error:', err)
+        console.error('[IoT] Connect error:', err)
         if (!destroyed) setTimeout(connect, 5000)
       }
     }
@@ -256,7 +223,6 @@ export function useIoT(
       destroyed = true
       clearInterval(pingInterval)
       ws?.close()
-      wsRef.current = null
     }
   }, [topics.join(',')])
 }
