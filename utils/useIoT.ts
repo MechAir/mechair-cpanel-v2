@@ -69,17 +69,28 @@ async function getSignedUrl(credentials: {
 const IDENTITY_POOL_ID = 'ap-south-1:f8c65bba-cd6c-4776-9996-b7d7bfab6ac8'
 
 async function getCognitoCredentials() {
-  // Step 1: Get Identity ID
-  const idRes = await fetch('https://cognito-identity.ap-south-1.amazonaws.com/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Target': 'AWSCognitoIdentityService.GetId',
-    },
-    body: JSON.stringify({ IdentityPoolId: IDENTITY_POOL_ID }),
-  })
-  const idData = await idRes.json()
-  if (!idData.IdentityId) throw new Error('GetId failed: ' + JSON.stringify(idData))
+  // Step 1: Get or reuse cached Identity ID
+  let identityId = typeof window !== 'undefined' ? localStorage.getItem('mechair_identity_id') : null
+
+  if (!identityId) {
+    const idRes = await fetch('https://cognito-identity.ap-south-1.amazonaws.com/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-amz-json-1.1',
+        'X-Amz-Target': 'AWSCognitoIdentityService.GetId',
+      },
+      body: JSON.stringify({ IdentityPoolId: IDENTITY_POOL_ID }),
+    })
+    const idData = await idRes.json()
+    if (!idData.IdentityId) throw new Error('GetId failed: ' + JSON.stringify(idData))
+    identityId = idData.IdentityId
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mechair_identity_id', identityId!)
+    }
+    console.log('[IoT] New Cognito Identity ID created:', identityId)
+  } else {
+    console.log('[IoT] Reusing cached Cognito Identity ID:', identityId)
+  }
 
   // Step 2: Get credentials for that identity
   const credRes = await fetch('https://cognito-identity.ap-south-1.amazonaws.com/', {
@@ -88,7 +99,7 @@ async function getCognitoCredentials() {
       'Content-Type': 'application/x-amz-json-1.1',
       'X-Amz-Target': 'AWSCognitoIdentityService.GetCredentialsForIdentity',
     },
-    body: JSON.stringify({ IdentityId: idData.IdentityId }),
+    body: JSON.stringify({ IdentityId: identityId }),
   })
   const credData = await credRes.json()
   if (!credData.Credentials) throw new Error('GetCredentials failed: ' + JSON.stringify(credData))
