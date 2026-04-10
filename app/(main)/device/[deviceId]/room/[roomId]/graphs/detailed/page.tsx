@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import ReportModal from '@/components/ReportModal'
 import { getDeviceType } from '@/utils/deviceTypes'
+import { useIoT } from '@/utils/useIoT'
 
 const POLL_INTERVAL_MS = 10000
 const LIVE_POINTS_COUNT = 12
@@ -1144,74 +1145,72 @@ export default function DetailedGraphsPage() {
     else setIsAuthenticated(true)
   }, [router])
 
-  // ── SSE live mode ─────────────────────────────────────────────────────────
+  // ── IoT WebSocket live mode ───────────────────────────────────────────────
+  // Subscribe to the device's readings topic. We always subscribe (rules of hooks),
+  // but we only update chart state when the user is in `live` mode.
+  // Reset the chart when the user toggles live mode on.
   useEffect(() => {
-    if (!isAuthenticated || timeRange.mode !== 'live') return
-
+    if (timeRange.mode !== 'live') return
     setAllData({ temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], labels: [], loading: false })
     setLiveStatus('connecting')
+  }, [timeRange.mode, deviceId, roomId])
 
-    const es = new EventSource(`${API_BASE}/devices/${deviceId}/subscribe`)
+  useIoT(
+    [`devices/${deviceId}/readings`],
+    useCallback(({ payload }) => {
+      // Only feed live mode — historical modes use the /range fetch instead
+      if (timeRange.mode !== 'live') return
 
-    es.onmessage = (e) => {
-      try {
-        const payload = JSON.parse(e.data)
+      // Firmware publishes { device, version, rooms: [{id, temp, CO2|humidity, O2, c2h4, sov, exh|comp}, ...] }
+      const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
+      if (roomsArr.length === 0) return
 
-        if (payload.type === 'connected') {
-          setLiveStatus('ok')
-          return
+      const roomIndex = parseInt(roomId, 10)
+      const room = roomsArr.find((r: any) => Number(r?.id) === roomIndex)
+      if (!room) return
+
+      // Field name compatibility:
+      //   EMS room → { temp, CO2, O2, c2h4, sov, exh }
+      //   MLH room → { temp, humidity, sov, comp }
+      // The graphs page reuses the CO2 series to also display "Humidity" for MLH (see MLH_METRIC_META above).
+      const temp = Number(room.temp ?? 0)
+      const co2 = Number(room.CO2 ?? room.humidity ?? 0)
+      const o2 = Number(room.O2 ?? 0)
+      const c2h4 = Number(room.c2h4 ?? 0)
+      // Per-room trigger flags — EMS uses exh/sov as proxies for CO2/C2H4 trigger lines
+      const trigCO2 = !!(room.exh ?? room.triggerco2 ?? false)
+      const trigC2H4 = !!(room.sov ?? room.triggerc2h4 ?? false)
+      const label = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+      const prefix = ROOM_PREFIX[roomId] ?? 'R1'
+      setLiveStatus('ok')
+      setLastUpdated(new Date().toLocaleTimeString())
+      setLatest({
+        [`${prefix}_temp`]: temp,
+        [`${prefix}_CO2`]: co2,
+        [`${prefix}_O2`]: o2,
+        [`${prefix}_c2h4`]: c2h4,
+        [`${prefix}_triggerco2`]: trigCO2 as unknown as number,
+        [`${prefix}_triggerc2h4`]: trigC2H4 as unknown as number,
+      } as Partial<ApiReading>)
+
+      setAllData(prev => {
+        if (prev.loading) return prev
+        const slice = <T,>(arr: T[]) => [...arr.slice(-(LIVE_POINTS_COUNT - 1))]
+        return {
+          ...prev,
+          temp: [...slice(prev.temp), temp],
+          co2: [...slice(prev.co2), co2],
+          o2: [...slice(prev.o2), o2],
+          c2h4: [...slice(prev.c2h4), c2h4],
+          triggersCO2: [...slice(prev.triggersCO2), trigCO2],
+          triggersC2H4: [...slice(prev.triggersC2H4), trigC2H4],
+          labels: [...slice(prev.labels), label],
+          latestTemp: temp, latestCO2: co2, latestO2: o2, latestC2H4: c2h4,
         }
-
-        if (payload.type !== 'reading') return
-
-        const r = payload.reading
-        const roomIndex = parseInt(roomId, 10)
-        const roomKey = `room${roomIndex}` as keyof typeof r
-        const room = r[roomKey]
-        if (!room) return
-
-        const temp = Number(room.temp ?? 0)
-        const co2 = Number(room.CO2 ?? 0)
-        const o2 = Number(room.O2 ?? 0)
-        const c2h4 = Number(room.c2h4 ?? 0)
-        const trigCO2 = !!room.triggerco2
-        const trigC2H4 = !!room.triggerc2h4
-        const label = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-
-        const prefix = ROOM_PREFIX[roomId] ?? 'R1'
-        setLiveStatus('ok')
-        setLastUpdated(new Date().toLocaleTimeString())
-        setLatest({
-          [`${prefix}_temp`]: temp,
-          [`${prefix}_CO2`]: co2,
-          [`${prefix}_O2`]: o2,
-          [`${prefix}_c2h4`]: c2h4,
-          [`${prefix}_triggerco2`]: trigCO2 as unknown as number,
-          [`${prefix}_triggerc2h4`]: trigC2H4 as unknown as number,
-        } as Partial<ApiReading>)
-
-        setAllData(prev => {
-          if (prev.loading) return prev
-          const slice = <T,>(arr: T[]) => [...arr.slice(-(LIVE_POINTS_COUNT - 1))]
-          return {
-            ...prev,
-            temp: [...slice(prev.temp), temp],
-            co2: [...slice(prev.co2), co2],
-            o2: [...slice(prev.o2), o2],
-            c2h4: [...slice(prev.c2h4), c2h4],
-            triggersCO2: [...slice(prev.triggersCO2), trigCO2],
-            triggersC2H4: [...slice(prev.triggersC2H4), trigC2H4],
-            labels: [...slice(prev.labels), label],
-            latestTemp: temp, latestCO2: co2, latestO2: o2, latestC2H4: c2h4,
-          }
-        })
-      } catch { /* ignore parse errors */ }
-    }
-
-    es.onerror = () => setLiveStatus('error')
-
-    return () => es.close()
-  }, [isAuthenticated, timeRange.mode, deviceId, roomId])
+      })
+    }, [timeRange.mode, roomId])
+  )
 
   // ── Range mode (non-live) ─────────────────────────────────────────────────
   const fetchRange = useCallback(async (range: TimeRange) => {
