@@ -153,6 +153,24 @@ function EmsTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoom
       .finally(() => setLoading(false))
   }, [deviceId])
 
+  // Live updates from device via IoT WebSocket
+  useIoT(
+    [`devices/${deviceId}/settings/timings`],
+    useCallback(({ payload }) => {
+      // Firmware publishes { "settings": { "Room 1": {...}, ... } }
+      const incoming = payload?.settings ?? payload
+      if (incoming && incoming['Room 1'] !== undefined) {
+        setSettings(prev => {
+          const updated = { ...prev }
+          emsRooms.forEach(room => {
+            if (incoming[room]) updated[room] = { ...prev[room], ...incoming[room] }
+          })
+          return updated
+        })
+      }
+    }, [])
+  )
+
   const cur = settings[activeRoom]
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/timings`, { settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
@@ -194,6 +212,25 @@ function EmsManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
       .then(data => { if (data?.manualSettings) setSettings(prev => ({ ...prev, ...data.manualSettings })) })
       .finally(() => setLoading(false))
   }, [deviceId])
+
+  // Live updates from device via IoT WebSocket
+  useIoT(
+    [`devices/${deviceId}/settings/manual-timings`],
+    useCallback(({ payload }) => {
+      // Firmware publishes { "manualSettings": { "Room 1": {...}, ... } }
+      const incoming = payload?.manualSettings ?? payload
+      if (incoming && incoming['Room 1'] !== undefined) {
+        setSettings(prev => {
+          const updated = { ...prev }
+          emsRooms.forEach(room => {
+            if (incoming[room]) updated[room] = { ...prev[room], ...incoming[room] }
+          })
+          return updated
+        })
+      }
+    }, [])
+  )
+
   const cur = settings[activeRoom]
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/manual-timings`, { manualSettings: settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
@@ -223,6 +260,25 @@ function EmsPumpTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomTyp
       .then(data => { if (data?.pumpSettings) setSettings(prev => ({ ...prev, ...data.pumpSettings })) })
       .finally(() => setLoading(false))
   }, [deviceId])
+
+  // Live updates from device via IoT WebSocket
+  useIoT(
+    [`devices/${deviceId}/settings/pump`],
+    useCallback(({ payload }) => {
+      // Firmware publishes { "pumpSettings": { "Room 1": {...}, ... } }
+      const incoming = payload?.pumpSettings ?? payload
+      if (incoming && incoming['Room 1'] !== undefined) {
+        setSettings(prev => {
+          const updated = { ...prev }
+          emsRooms.forEach(room => {
+            if (incoming[room]) updated[room] = { ...prev[room], ...incoming[room] }
+          })
+          return updated
+        })
+      }
+    }, [])
+  )
+
   const cur = settings[activeRoom]
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/pump`, { pumpSettings: settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
@@ -276,6 +332,41 @@ function EmsRecipesTab({ deviceId, readOnly }: { deviceId: string; readOnly?: bo
       }
     }).finally(() => setLoading(false))
   }, [deviceId])
+
+  // Live updates from device via IoT WebSocket — recipes catalog
+  useIoT(
+    [`devices/${deviceId}/recipes`],
+    useCallback(({ payload }) => {
+      // Firmware publishes { "recipes": [...] }
+      const incoming = payload?.recipes
+      if (Array.isArray(incoming) && incoming.length > 0) {
+        setRecipes(incoming)
+      }
+    }, [])
+  )
+
+  // Live updates from device via IoT WebSocket — room recipe assignments
+  useIoT(
+    [`devices/${deviceId}/room-recipe`],
+    useCallback(({ payload }) => {
+      // Firmware publishes { "assignments": [{"roomId":"room-1","recipeId":"potato"},...] }
+      const incoming = payload?.assignments
+      if (Array.isArray(incoming)) {
+        setAssignments(prev => {
+          const mapped = { ...prev }
+          incoming.forEach((entry: { roomId?: string; recipeId?: string | null }) => {
+            const roomEntry = Object.entries(EMS_ROOM_ID_MAP).find(([, id]) => id === entry.roomId)
+            if (roomEntry && entry.recipeId) {
+              const room = roomEntry[0] as EmsRoomType
+              const match = recipes.find(r => r.id === entry.recipeId)
+              if (match) mapped[room] = match.name
+            }
+          })
+          return mapped
+        })
+      }
+    }, [recipes])
+  )
 
   const persistRecipes = async (updated: Recipe[]) => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/recipes`, { recipes: updated }); setSaved(true); setTimeout(() => setSaved(false), 2000); return true }
