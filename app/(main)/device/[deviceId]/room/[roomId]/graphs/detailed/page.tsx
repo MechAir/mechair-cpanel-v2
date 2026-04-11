@@ -641,17 +641,19 @@ function MetricGraph({ metricKey, data, triggers, labels, latestValue, tall, isL
 }
 
 // ── CombinedGraphExpandModal ──────────────────────────────────────────────────
-function CombinedGraphExpandModal({ dataMap, triggerMap, labels, latest, prefix, onClose }: {
+function CombinedGraphExpandModal({ dataMap, triggerMap, labels, latest, prefix, onClose, visibleMetrics }: {
   dataMap: Record<MetricKey, number[]>
   triggerMap: Record<MetricKey, boolean[]>
   labels: string[]
   latest: Partial<ApiReading>
   prefix: string
   onClose: () => void
+  visibleMetrics?: MetricKey[]
 }) {
-  const [visible, setVisible] = useState<Record<MetricKey, boolean>>({
-    temp: true, CO2: true, O2: true, C2H4: true,
-  })
+  const allKeys = visibleMetrics || (Object.keys(METRIC_META) as MetricKey[])
+  const defaultVisible: Record<MetricKey, boolean> = { temp: false, CO2: false, O2: false, C2H4: false }
+  allKeys.forEach(k => defaultVisible[k] = true)
+  const [visible, setVisible] = useState<Record<MetricKey, boolean>>(defaultVisible)
   const toggleMetric = (key: MetricKey) => setVisible(prev => ({ ...prev, [key]: !prev[key] }))
   const wrapRef = useRef<HTMLDivElement>(null)
   const { w: W, h: H } = useSize(wrapRef)
@@ -724,7 +726,7 @@ function CombinedGraphExpandModal({ dataMap, triggerMap, labels, latest, prefix,
             <p style={{ fontSize: 12, color: '#94A3B8', margin: '4px 0 0', fontWeight: 500 }}>Expanded view</p>
           </div>
           <div style={{ marginRight: 48, display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
-            {(Object.keys(METRIC_META) as MetricKey[]).map(k => (
+            {allKeys.map(k => (
               <button key={k} onClick={(e) => { e.stopPropagation(); toggleMetric(k); }}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', opacity: visible[k] ? 1 : 0.35, transition: 'opacity 0.2s', padding: '4px 8px', borderRadius: 8 }}>
                 <div style={{ width: 14, height: 14, borderRadius: 4, background: METRIC_META[k].color }} />
@@ -754,7 +756,7 @@ function CombinedGraphExpandModal({ dataMap, triggerMap, labels, latest, prefix,
               ))}
               <line x1={0} y1={H} x2={W} y2={H} stroke="#E2E8F0" strokeWidth={1.5} />
 
-              {(Object.keys(METRIC_META) as MetricKey[]).map(key => {
+              {allKeys.map(key => {
                 if (!visible[key]) return null
                 const d = dataMap[key]
                 const trigs = triggerMap[key]
@@ -808,7 +810,7 @@ function CombinedGraphExpandModal({ dataMap, triggerMap, labels, latest, prefix,
             <div style={{ position: 'absolute', top: 20, left: hoverX > W * 0.65 ? 'auto' : hoverX + 16, right: hoverX > W * 0.65 ? (W - hoverX) + 16 : 'auto', pointerEvents: 'none', zIndex: 99 }}>
               <div style={{ background: '#0F172A', borderRadius: 16, padding: '12px 16px', minWidth: 180, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
                 <div style={{ fontSize: 10, color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>{labels[hoverIdx] ?? ''}</div>
-                {(Object.keys(METRIC_META) as MetricKey[]).map(key => {
+                {allKeys.map(key => {
                   if (!visible[key]) return null
                   const val = dataMap[key][hoverIdx]
                   const mk = METRIC_META[key]
@@ -842,8 +844,8 @@ function CombinedGraphExpandModal({ dataMap, triggerMap, labels, latest, prefix,
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, paddingTop: 16, marginTop: 16, borderTop: '1px solid #F8FAFC' }}>
-          {(Object.keys(METRIC_META) as MetricKey[]).map(key => {
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${allKeys.length},1fr)`, gap: 12, paddingTop: 16, marginTop: 16, borderTop: '1px solid #F8FAFC' }}>
+          {allKeys.map(key => {
             if (!visible[key]) return null
             const val = key === 'temp' ? latest[`${prefix}_temp`]
               : key === 'CO2' ? latest[`${prefix}_CO2`]
@@ -872,7 +874,7 @@ function CombinedGraphExpandModal({ dataMap, triggerMap, labels, latest, prefix,
 }
 
 // ── CombinedGraph ─────────────────────────────────────────────────────────────
-function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading, onExpand }: {
+function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading, onExpand, visibleMetrics }: {
   dataMap: Record<MetricKey, number[]>
   triggerMap: Record<MetricKey, boolean[]>
   labels: string[]
@@ -880,10 +882,12 @@ function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading,
   prefix: string
   isLoading?: boolean
   onExpand?: () => void
+  visibleMetrics?: MetricKey[]
 }) {
-  const [visible, setVisible] = useState<Record<MetricKey, boolean>>({
-    temp: true, CO2: true, O2: true, C2H4: true,
-  })
+  const allKeys = visibleMetrics || (Object.keys(METRIC_META) as MetricKey[])
+  const defaultVisible: Record<MetricKey, boolean> = { temp: false, CO2: false, O2: false, C2H4: false }
+  allKeys.forEach(k => defaultVisible[k] = true)
+  const [visible, setVisible] = useState<Record<MetricKey, boolean>>(defaultVisible)
   const toggleMetric = (key: MetricKey) => setVisible(prev => ({ ...prev, [key]: !prev[key] }))
   const wrapRef = useRef<HTMLDivElement>(null)
   const { w: W, h: H } = useSize(wrapRef)
@@ -913,7 +917,7 @@ function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading,
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>All Metrics Combined</span>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
-          {(Object.keys(METRIC_META) as MetricKey[]).map(k => (
+          {allKeys.map(k => (
             <button key={k} onClick={(e) => { e.stopPropagation(); toggleMetric(k); }}
               style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', opacity: visible[k] ? 1 : 0.35, transition: 'opacity 0.2s', padding: '2px 4px' }}>
               <div style={{ width: 10, height: 10, borderRadius: 3, background: METRIC_META[k].color }} />
@@ -948,7 +952,7 @@ function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading,
             ))}
             <line x1={0} y1={H} x2={W} y2={H} stroke="#E2E8F0" strokeWidth={1.5} />
 
-            {(Object.keys(METRIC_META) as MetricKey[]).map(key => {
+            {allKeys.map(key => {
               if (!visible[key]) return null
               const d = dataMap[key]
               const trigs = triggerMap[key]
@@ -1002,7 +1006,7 @@ function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading,
           <div style={{ position: 'absolute', top: 8, left: hoverX > W * 0.65 ? 'auto' : hoverX + 14, right: hoverX > W * 0.65 ? (W - hoverX) + 14 : 'auto', pointerEvents: 'none', zIndex: 99 }}>
             <div style={{ background: '#0F172A', borderRadius: 12, padding: '10px 14px', minWidth: 155, boxShadow: '0 8px 28px rgba(0,0,0,0.3)' }}>
               <div style={{ fontSize: 9, color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 9 }}>{labels[hoverIdx] ?? ''}</div>
-              {(Object.keys(METRIC_META) as MetricKey[]).map(key => {
+              {allKeys.map(key => {
                 if (!visible[key]) return null
                 const val = dataMap[key][hoverIdx]
                 const mk = METRIC_META[key]
@@ -1038,8 +1042,8 @@ function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading,
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, paddingTop: 12, marginTop: 6, borderTop: '1px solid #F8FAFC' }}>
-        {(Object.keys(METRIC_META) as MetricKey[]).map(key => {
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${allKeys.length},1fr)`, gap: 8, paddingTop: 12, marginTop: 6, borderTop: '1px solid #F8FAFC' }}>
+        {allKeys.map(key => {
           if (!visible[key]) return null
           const val = key === 'temp' ? latest[`${prefix}_temp`]
             : key === 'CO2' ? latest[`${prefix}_CO2`]
@@ -1312,10 +1316,14 @@ export default function DetailedGraphsPage() {
                 : `Showing: ${RANGE_OPTIONS.find(r => r.key === timeRange.mode)?.label ?? 'Custom'}`}
             </span>
             <span className="flex items-center gap-2 text-xs">
+              {getDeviceType(deviceId).sensors.includes('co2') && (<>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: METRIC_META.CO2.triggerColor, display: 'inline-block' }} />
               <span style={{ color: METRIC_META.CO2.triggerColor, fontWeight: 600 }}>CO₂ triggered</span>
+              </>)}
+              {getDeviceType(deviceId).sensors.includes('c2h4') && (<>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: METRIC_META.C2H4.triggerColor, display: 'inline-block', marginLeft: 4 }} />
               <span style={{ color: METRIC_META.C2H4.triggerColor, fontWeight: 600 }}>C₂H₄ triggered</span>
+              </>)}
             </span>
           </p>
         </div>
@@ -1348,26 +1356,51 @@ export default function DetailedGraphsPage() {
         </div>
       </div>
 
-      {/* Graphs */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-5 mb-3 sm:mb-5">
-        <MetricGraph metricKey="C2H4" data={allData.c2h4} triggers={allData.triggersC2H4} labels={allData.labels}
-          latestValue={timeRange.mode === 'live' ? (latest[`${prefix}_C2H4`] ?? latest[`${prefix}_c2h4`]) : allData.latestC2H4}
-          isLoading={allData.loading} onExpand={() => setExpandedMetric('C2H4')} />
-        <MetricGraph metricKey="CO2" data={allData.co2} triggers={allData.triggersCO2} labels={allData.labels}
-          latestValue={timeRange.mode === 'live' ? latest[`${prefix}_CO2`] : allData.latestCO2}
-          isLoading={allData.loading} onExpand={() => setExpandedMetric('CO2')} />
-        <MetricGraph metricKey="O2" data={allData.o2} triggers={emptyTriggers} labels={allData.labels}
-          latestValue={timeRange.mode === 'live' ? latest[`${prefix}_O2`] : allData.latestO2}
-          isLoading={allData.loading} onExpand={() => setExpandedMetric('O2')} />
-      </div>
+      {/* Graphs — filtered by device type sensors */}
+      {(() => {
+        const dt = getDeviceType(deviceId)
+        const isMlh = dt.prefix === 'mlh'
+        const showC2H4 = dt.sensors.includes('c2h4')
+        const showCO2 = dt.sensors.includes('co2')
+        const showO2 = dt.sensors.includes('o2')
+        const showHumidity = dt.sensors.includes('humidity')
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-5 mb-3 sm:mb-5">
-        <MetricGraph metricKey="temp" data={allData.temp} triggers={emptyTriggers} labels={allData.labels}
-          latestValue={timeRange.mode === 'live' ? latest[`${prefix}_temp`] : allData.latestTemp}
-          tall isLoading={allData.loading} onExpand={() => setExpandedMetric('temp')} />
-        <CombinedGraph dataMap={combinedDataMap} triggerMap={combinedTriggerMap}
-          labels={allData.labels} latest={latest} prefix={prefix} isLoading={allData.loading} onExpand={() => setExpandedMetric('combined')} />
-      </div>
+        // Top row: show only relevant sensors
+        const topCards = []
+        if (showC2H4) topCards.push(
+          <MetricGraph key="C2H4" metricKey="C2H4" data={allData.c2h4} triggers={allData.triggersC2H4} labels={allData.labels}
+            latestValue={timeRange.mode === 'live' ? (latest[`${prefix}_C2H4`] ?? latest[`${prefix}_c2h4`]) : allData.latestC2H4}
+            isLoading={allData.loading} onExpand={() => setExpandedMetric('C2H4')} />
+        )
+        if (showCO2) topCards.push(
+          <MetricGraph key="CO2" metricKey="CO2" data={allData.co2} triggers={allData.triggersCO2} labels={allData.labels}
+            latestValue={timeRange.mode === 'live' ? latest[`${prefix}_CO2`] : allData.latestCO2}
+            isLoading={allData.loading} onExpand={() => setExpandedMetric('CO2')} />
+        )
+        if (showO2 || showHumidity) topCards.push(
+          <MetricGraph key="O2" metricKey="O2" data={allData.o2} triggers={emptyTriggers} labels={allData.labels}
+            latestValue={timeRange.mode === 'live' ? latest[`${prefix}_O2`] : allData.latestO2}
+            isLoading={allData.loading} onExpand={() => setExpandedMetric('O2')} />
+        )
+
+        // For MLH: only show temp and humidity in combined, filter out CO2/C2H4
+        const filteredCombinedDataMap: Record<MetricKey, number[]> = { ...combinedDataMap }
+        const filteredCombinedTriggerMap: Record<MetricKey, boolean[]> = { ...combinedTriggerMap }
+
+        return (<>
+          <div className={`grid grid-cols-1 ${topCards.length >= 3 ? 'lg:grid-cols-3' : topCards.length === 2 ? 'lg:grid-cols-2' : ''} gap-3 sm:gap-5 mb-3 sm:mb-5`}>
+            {topCards}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-5 mb-3 sm:mb-5">
+            <MetricGraph metricKey="temp" data={allData.temp} triggers={emptyTriggers} labels={allData.labels}
+              latestValue={timeRange.mode === 'live' ? latest[`${prefix}_temp`] : allData.latestTemp}
+              tall isLoading={allData.loading} onExpand={() => setExpandedMetric('temp')} />
+            <CombinedGraph dataMap={filteredCombinedDataMap} triggerMap={filteredCombinedTriggerMap}
+              labels={allData.labels} latest={latest} prefix={prefix} isLoading={allData.loading} onExpand={() => setExpandedMetric('combined')}
+              visibleMetrics={isMlh ? ['temp', 'CO2'] : undefined} />
+          </div>
+        </>)
+      })()}
 
       {expandedMetric && expandedMetric !== 'combined' && (
         <GraphExpandModal
@@ -1388,6 +1421,7 @@ export default function DetailedGraphsPage() {
           latest={latest}
           prefix={prefix}
           onClose={() => setExpandedMetric(null)}
+          visibleMetrics={getDeviceType(deviceId).prefix === 'mlh' ? ['temp', 'CO2'] as MetricKey[] : undefined}
         />
       )}
 
