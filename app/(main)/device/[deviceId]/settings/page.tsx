@@ -15,7 +15,7 @@ interface TimingField { value: number; unit: TimeUnit }
 
 // EMS types
 type EmsTabType = 'timings' | 'manual' | 'pump' | 'recipes' | 'limits'
-type EmsRoomType = 'Room 1' | 'Room 2' | 'Room 3' | 'Room 4'
+type EmsRoomType = string
 interface EmsRoomSettings {
   c2h4TriggerDiff: number; co2Setpoint: number; co2TriggerDiff: number
   sovOnTime: TimingField; sovOffTime: TimingField; exhaustFanOn: TimingField; exhaustFanOff: TimingField
@@ -27,7 +27,7 @@ interface Recipe { id: string; name: string; steps: RecipeStep[] }
 
 // MLH types
 type MlhTabType = 'timings' | 'manual' | 'enabled-rooms'
-type MlhRoomType = 'Room 1' | 'Room 2' | 'Room 3' | 'Room 4' | 'Room 5' | 'Room 6'
+type MlhRoomType = string
 interface MlhRoomSettings {
   tempSetpoint: number; tempTriggerDiff: number
   humiditySetpoint: number; humidityTriggerDiff: number
@@ -659,9 +659,10 @@ export default function SettingsPage() {
   const [activeEmsTab, setActiveEmsTab] = useState<EmsTabType>('timings')
   const [activeMlhTab, setActiveMlhTab] = useState<MlhTabType>('timings')
 
-  // Room state — EMS (4 rooms) or MLH (6 rooms)
-  const emsRooms: EmsRoomType[] = ['Room 1', 'Room 2', 'Room 3', 'Room 4']
-  const mlhRooms: MlhRoomType[] = ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Room 5', 'Room 6']
+  // Room state — dynamic based on device ID
+  const roomCount = deviceType.rooms
+  const emsRooms: EmsRoomType[] = Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`)
+  const mlhRooms: MlhRoomType[] = Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`)
   const [activeEmsRoom, setActiveEmsRoom] = useState<EmsRoomType>('Room 1')
   const [activeMlhRoom, setActiveMlhRoom] = useState<MlhRoomType>('Room 1')
 
