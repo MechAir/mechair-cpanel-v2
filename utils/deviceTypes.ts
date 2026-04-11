@@ -1,14 +1,9 @@
 // ==================== DEVICE TYPE REGISTRY ====================
-// Add new device types here. That's the only place you need to touch
-// when adding a new device family in the future.
+// Room count is parsed from the deviceId: first 3 chars = type, next 2 = room count
+// Example: EMS04260101 → type=ems, rooms=4 | MLH06250101 → type=mlh, rooms=6
 //
-// prefix     : first 3 letters of deviceId (lowercase) used for detection
-// rooms      : number of rooms this device type has
-// label      : human-readable name shown in UI
-// shortLabel : short name shown on badges/cards
-// color      : accent color for this device type (Tailwind hex)
-// sensors    : which sensors each room has
-// settingsTabs: which settings tabs to show for this device type
+// Only add new types here for sensors, relays, colors, and settings tabs.
+// Room count is always auto-detected from the deviceId itself.
 
 export interface DeviceTypeConfig {
   prefix: string
@@ -22,10 +17,11 @@ export interface DeviceTypeConfig {
   settingsTabs: ('timings' | 'manual' | 'pump' | 'recipes' | 'limits' | 'enabled-rooms')[]
 }
 
+// Base configs — rooms is a fallback; actual room count comes from deviceId
 export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
   ems: {
     prefix: 'ems',
-    rooms: 4,
+    rooms: 4, // fallback if digits missing
     label: 'Ethylene Management System',
     shortLabel: 'EMS',
     color: '#2B8DB8',
@@ -36,7 +32,7 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
   },
   mlh: {
     prefix: 'mlh',
-    rooms: 6,
+    rooms: 6, // fallback if digits missing
     label: 'Cold Room Management System',
     shortLabel: 'MLH',
     color: '#2D7D46',
@@ -46,11 +42,11 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
     settingsTabs: ['timings', 'manual', 'enabled-rooms'],
   },
   // ── Add future device types below ──────────────────────────────
-  // abs: {
-  //   prefix: 'abs',
-  //   rooms: 8,
-  //   label: 'Advanced Biosensor System',
-  //   shortLabel: 'ABS',
+  // xyz: {
+  //   prefix: 'xyz',
+  //   rooms: 8, // fallback
+  //   label: 'My New System',
+  //   shortLabel: 'XYZ',
   //   color: '#7C3AED',
   //   badgeBg: 'bg-violet-700',
   //   sensors: ['temp', 'humidity', 'co2'],
@@ -59,10 +55,29 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
   // },
 }
 
-// Detect device type from deviceId prefix
+/**
+ * Parse room count from deviceId characters 4-5 (zero-indexed 3-4).
+ * EMS04260101 → 04 → 4 rooms
+ * MLH06250101 → 06 → 6 rooms
+ * XYZ08250101 → 08 → 8 rooms
+ * Returns null if digits can't be parsed.
+ */
+function parseRoomCount(deviceId: string): number | null {
+  if (!deviceId || deviceId.length < 5) return null
+  const digits = deviceId.slice(3, 5)
+  const num = parseInt(digits, 10)
+  return isNaN(num) || num <= 0 ? null : num
+}
+
+// Detect device type from deviceId prefix + parse room count from digits
 export function getDeviceType(deviceId: string): DeviceTypeConfig {
   const prefix = deviceId.toLowerCase().slice(0, 3)
-  return DEVICE_TYPES[prefix] ?? DEVICE_TYPES['ems'] // default to EMS if unknown
+  const base = DEVICE_TYPES[prefix] ?? DEVICE_TYPES['ems']
+  const roomCount = parseRoomCount(deviceId)
+  return {
+    ...base,
+    rooms: roomCount ?? base.rooms,
+  }
 }
 
 // Check if a deviceId belongs to a specific type
