@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getUser, isAdmin, isSubAdmin, logout } from '@/utils/auth'
+import { getUser, isAdmin, isOwner, isSubAdmin, logout, listUsers, createUser, updateUser, deleteUser } from '@/utils/auth'
 import AddSubAdminModal from '@/components/AddSubAdminModal'
 import AddSupervisorModal from '@/components/AddSupervisorModal'
 import UserHierarchySection from '@/components/UserHierarchySection'
@@ -542,6 +542,56 @@ export default function DashboardPage() {
   const [powerOffDevice, setPowerOffDevice] = useState<Device | null>(null)
   const [powerOnDevice, setPowerOnDevice] = useState<Device | null>(null)
 
+  // ── Owner: User Management ──
+  const [ownerUsers, setOwnerUsers] = useState<any[]>([])
+  const [ownerUsersLoading, setOwnerUsersLoading] = useState(false)
+  const [showAddUser, setShowAddUser] = useState(false)
+  const [editingUser, setEditingUser] = useState<any | null>(null)
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'admin' as string, linkedDeviceId: '', canEditRoom: true })
+  const [userError, setUserError] = useState('')
+  const [userSaving, setUserSaving] = useState(false)
+
+  const fetchOwnerUsers = async () => {
+    setOwnerUsersLoading(true)
+    const result = await listUsers()
+    if (result.success && result.data) setOwnerUsers(result.data)
+    setOwnerUsersLoading(false)
+  }
+
+  const handleCreateUser = async () => {
+    setUserError('')
+    if (!newUser.username || !newUser.password) { setUserError('Username and password required'); return }
+    if ((newUser.role === 'sub-admin' || newUser.role === 'supervisor') && !newUser.linkedDeviceId) { setUserError('Select a device for this role'); return }
+    setUserSaving(true)
+    const result = await createUser({
+      username: newUser.username,
+      password: newUser.password,
+      role: newUser.role as 'admin' | 'sub-admin' | 'supervisor',
+      linkedDeviceId: newUser.linkedDeviceId || undefined,
+      canEditRoom: newUser.role === 'supervisor' ? newUser.canEditRoom : true,
+    })
+    setUserSaving(false)
+    if (!result.success) { setUserError(result.message || 'Failed'); return }
+    setShowAddUser(false)
+    setNewUser({ username: '', password: '', role: 'admin', linkedDeviceId: '', canEditRoom: true })
+    fetchOwnerUsers()
+  }
+
+  const handleDeleteUser = async (username: string) => {
+    if (!confirm(`Delete user "${username}"?`)) return
+    const result = await deleteUser(username)
+    if (result.success) fetchOwnerUsers()
+    else alert(result.message || 'Failed to delete')
+  }
+
+  const handleUpdatePassword = async (username: string) => {
+    const pwd = prompt(`New password for "${username}":`)
+    if (!pwd) return
+    const result = await updateUser(username, { password: pwd })
+    if (result.success) alert('Password updated')
+    else alert(result.message || 'Failed')
+  }
+
   // ── Modals logic ──
   const [deletingIdInput, setDeletingIdInput] = useState('')
 
@@ -648,6 +698,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAuthenticated) return
     fetchDevices()
+    if (isOwner()) fetchOwnerUsers()
     const interval = setInterval(fetchDevices, 30000)
     return () => clearInterval(interval)
   }, [isAuthenticated])
@@ -701,6 +752,156 @@ export default function DashboardPage() {
 
 
       </div>
+
+      {/* ═══ Owner: User Management Section ═══ */}
+      {isOwner() && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 sm:mb-8 overflow-hidden">
+          <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-800">User Management</h3>
+                <p className="text-xs text-gray-400">{ownerUsers.length} user{ownerUsers.length !== 1 ? 's' : ''} total</p>
+              </div>
+            </div>
+            <button
+              onClick={() => { setShowAddUser(true); setNewUser({ username: '', password: '', role: 'admin', linkedDeviceId: '', canEditRoom: true }); setUserError('') }}
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-amber-500 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-amber-600 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add User
+            </button>
+          </div>
+
+          {/* Add User Form (inline) */}
+          {showAddUser && (
+            <div className="px-5 sm:px-6 py-4 bg-amber-50/50 border-b border-amber-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+                  <input type="text" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})}
+                    placeholder="e.g. john" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+                  <input type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})}
+                    placeholder="••••••" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Role</label>
+                  <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white">
+                    <option value="admin">Admin</option>
+                    <option value="sub-admin">Sub-Admin</option>
+                    <option value="supervisor">Supervisor</option>
+                  </select>
+                </div>
+                {(newUser.role === 'sub-admin' || newUser.role === 'supervisor') && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Device</label>
+                    <select value={newUser.linkedDeviceId} onChange={e => setNewUser({...newUser, linkedDeviceId: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white">
+                      <option value="">Select device...</option>
+                      {devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.name} ({d.deviceId})</option>)}
+                    </select>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={handleCreateUser} disabled={userSaving}
+                    className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-50">
+                    {userSaving ? 'Creating...' : 'Create'}
+                  </button>
+                  <button onClick={() => setShowAddUser(false)}
+                    className="px-3 py-2 border border-gray-200 text-gray-500 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              {userError && <p className="text-red-500 text-xs mt-2">{userError}</p>}
+            </div>
+          )}
+
+          {/* Users Table */}
+          <div className="overflow-x-auto">
+            {ownerUsersLoading ? (
+              <div className="px-6 py-8 text-center text-gray-400 text-sm">Loading users...</div>
+            ) : ownerUsers.length === 0 ? (
+              <div className="px-6 py-8 text-center text-gray-400 text-sm">No users found</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50/80">
+                    <th className="text-left px-5 sm:px-6 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">User</th>
+                    <th className="text-left px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Role</th>
+                    <th className="text-left px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Device</th>
+                    <th className="text-left px-3 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden md:table-cell">Created</th>
+                    <th className="text-right px-5 sm:px-6 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {ownerUsers.map(u => {
+                    const roleBg: Record<string, string> = {
+                      owner: 'bg-amber-100 text-amber-700',
+                      admin: 'bg-blue-50 text-blue-600',
+                      'sub-admin': 'bg-purple-50 text-purple-600',
+                      supervisor: 'bg-gray-100 text-gray-600',
+                    }
+                    const roleLabel: Record<string, string> = { owner: 'Owner', admin: 'Admin', 'sub-admin': 'Sub-Admin', supervisor: 'Supervisor' }
+                    const isCurrentUser = u.username === getUser()?.username
+                    return (
+                      <tr key={u.username} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-5 sm:px-6 py-3">
+                          <span className="font-medium text-gray-800">{u.username}</span>
+                          {isCurrentUser && <span className="ml-2 text-[10px] text-gray-400">(you)</span>}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${roleBg[u.role] || 'bg-gray-100 text-gray-500'}`}>
+                            {roleLabel[u.role] || u.role}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 hidden sm:table-cell">
+                          {u.linkedDeviceId ? (
+                            <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">{u.linkedDeviceId}</span>
+                          ) : (
+                            <span className="text-xs text-gray-300">All devices</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 hidden md:table-cell text-xs text-gray-400">
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        </td>
+                        <td className="px-5 sm:px-6 py-3 text-right">
+                          {!isCurrentUser && u.role !== 'owner' && (
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => handleUpdatePassword(u.username)} title="Reset password"
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <button onClick={() => handleDeleteUser(u.username)} title="Delete user"
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Device Grid */}
       {loading ? (
