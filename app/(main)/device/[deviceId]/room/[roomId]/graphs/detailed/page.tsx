@@ -10,9 +10,9 @@ const POLL_INTERVAL_MS = 10000
 const LIVE_POINTS_COUNT = 12
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
 
-const ROOM_PREFIX: Record<string, string> = {
-  '1': 'R1', '2': 'R2', '3': 'R3', '4': 'R4', '5': 'R5', '6': 'R6',
-}
+const ROOM_PREFIX: Record<string, string> = Object.fromEntries(
+  Array.from({ length: 20 }, (_, i) => [String(i + 1), `R${i + 1}`])
+)
 
 interface ApiReading { [key: string]: number }
 
@@ -1322,7 +1322,7 @@ export default function DetailedGraphsPage() {
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex gap-1.5 sm:gap-2">
-            {['1', '2', '3', '4'].map(id => (
+            {Array.from({ length: getDeviceType(deviceId).rooms }, (_, i) => String(i + 1)).map(id => (
               <button key={id}
                 onClick={() => router.push(`/device/${deviceId}/room/${id}/graphs/detailed`)}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200
