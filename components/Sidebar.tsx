@@ -15,7 +15,7 @@ export default function Sidebar() {
   const [admin, setAdmin] = useState(false)
 
   useEffect(() => {
-    setAdmin(isAdmin())
+    setAdmin(isAdmin()) // isAdmin() returns true for both 'owner' and 'admin'
   }, [])
 
   const deviceType = deviceId ? getDeviceType(deviceId) : null

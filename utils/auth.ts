@@ -3,7 +3,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mech
 
 export interface AuthUser {
   username: string
-  role: 'admin' | 'sub-admin' | 'supervisor'
+  role: 'owner' | 'admin' | 'sub-admin' | 'supervisor'
   linkedDeviceId: string | null
   canEditRoom?: boolean
 }
@@ -24,8 +24,13 @@ export function getUser(): AuthUser | null {
   }
 }
 
+export function isOwner(): boolean {
+  return getUser()?.role === 'owner'
+}
+
 export function isAdmin(): boolean {
-  return getUser()?.role === 'admin'
+  const role = getUser()?.role
+  return role === 'admin' || role === 'owner'
 }
 
 export function isSubAdmin(): boolean {
@@ -34,6 +39,18 @@ export function isSubAdmin(): boolean {
 
 export function isSupervisor(): boolean {
   return getUser()?.role === 'supervisor'
+}
+
+/** Returns true for owner, admin, sub-admin — anyone who can control devices */
+export function canControl(): boolean {
+  const role = getUser()?.role
+  return role === 'owner' || role === 'admin' || role === 'sub-admin'
+}
+
+/** Returns true for owner and admin — anyone who can manage users */
+export function canManageUsers(): boolean {
+  const role = getUser()?.role
+  return role === 'owner' || role === 'admin' || role === 'sub-admin'
 }
 
 export function logout(): void {
@@ -49,13 +66,14 @@ export function authHeaders(): Record<string, string> {
 }
 
 /**
- * Create a sub-admin (admin calling) or supervisor (sub-admin calling).
+ * Create a user — owner can create admin/sub-admin/supervisor,
+ * admin can create sub-admin/supervisor, sub-admin can create supervisor.
  */
 export async function createUser(params: {
   username: string
   password: string
-  role: 'sub-admin' | 'supervisor'
-  linkedDeviceId: string
+  role: 'admin' | 'sub-admin' | 'supervisor'
+  linkedDeviceId?: string
   canEditRoom?: boolean
 }): Promise<{ success: boolean; message?: string }> {
   const res = await fetch(`${API_BASE}/auth/users`, {
@@ -71,4 +89,55 @@ export async function createUser(params: {
     return { success: false, message: data.message || 'Failed to create user' }
   }
   return { success: true }
+}
+
+/**
+ * Update a user (password, linkedDeviceId, canEditRoom).
+ */
+export async function updateUser(
+  username: string,
+  params: { password?: string; linkedDeviceId?: string; canEditRoom?: boolean }
+): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(`${API_BASE}/auth/users/${encodeURIComponent(username)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify(params)
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    return { success: false, message: data.message || 'Failed to update user' }
+  }
+  return { success: true }
+}
+
+/**
+ * Delete a user.
+ */
+export async function deleteUser(username: string): Promise<{ success: boolean; message?: string }> {
+  const res = await fetch(`${API_BASE}/auth/users/${encodeURIComponent(username)}`, {
+    method: 'DELETE',
+    headers: authHeaders()
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    return { success: false, message: data.message || 'Failed to delete user' }
+  }
+  return { success: true }
+}
+
+/**
+ * List users visible to the current caller.
+ */
+export async function listUsers(): Promise<{ success: boolean; data?: AuthUser[]; message?: string }> {
+  const res = await fetch(`${API_BASE}/auth/users`, {
+    headers: authHeaders()
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    return { success: false, message: data.message || 'Failed to list users' }
+  }
+  return { success: true, data: data.data }
 }

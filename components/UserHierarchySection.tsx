@@ -9,7 +9,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mech
 interface HierarchyUser {
     _id: string
     username: string
-    role: 'admin' | 'sub-admin' | 'supervisor'
+    role: 'owner' | 'admin' | 'sub-admin' | 'supervisor'
     linkedDeviceId: string | null
     createdBy: string | null
     createdAt: string
@@ -28,11 +28,13 @@ interface SubAdminNode {
 // ─── Role Badge ───────────────────────────────────────────────────────────────
 function RoleBadge({ role }: { role: string }) {
     const styles: Record<string, string> = {
+        'owner': 'bg-amber-100 text-amber-700 border border-amber-300',
         'admin': 'bg-amber-50 text-amber-600 border border-amber-200',
         'sub-admin': 'bg-[#EBF5FB] text-[#2B8DB8] border border-[#2B8DB8]/20',
         'supervisor': 'bg-purple-50 text-purple-600 border border-purple-200',
     }
     const labels: Record<string, string> = {
+        'owner': 'Owner',
         'admin': 'Admin',
         'sub-admin': 'Sub-Admin',
         'supervisor': 'Supervisor',

@@ -37,7 +37,7 @@ export default function LoginPage() {
       localStorage.setItem('isAuthenticated', 'true')
 
       // Route based on role
-      if (user.role === 'admin') {
+      if (user.role === 'owner' || user.role === 'admin') {
         router.push('/dashboard')
       } else if (user.linkedDeviceId) {
         router.push(`/device/${user.linkedDeviceId}/rooms`)

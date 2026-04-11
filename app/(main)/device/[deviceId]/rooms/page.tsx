@@ -263,8 +263,8 @@ export default function DeviceRoomsPage() {
   const [pendingResetChanges, setPendingResetChanges] = useState<Record<string, Partial<RoomData>>>({})
 
   const user = getUser()
-  const canEditWifi = user?.role === 'admin' || user?.role === 'sub-admin'
-  const canEditRooms = user?.role === 'sub-admin' ? !!user?.canEditRoom : true
+  const canEditWifi = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'sub-admin'
+  const canEditRooms = user?.role === 'supervisor' ? false : (user?.role === 'sub-admin' ? !!user?.canEditRoom : true)
 
   // Detect device type
   const deviceType = getDeviceType(deviceId)

@@ -13,12 +13,14 @@ interface HeaderProps {
 }
 
 const ROLE_COLORS: Record<string, string> = {
+    'owner': 'bg-amber-600 text-white',
     'admin': 'bg-[#2B8DB8] text-white',
     'sub-admin': 'bg-purple-600 text-white',
     'supervisor': 'bg-amber-500 text-white',
 }
 
 const ROLE_LABELS: Record<string, string> = {
+    'owner': 'Owner',
     'admin': 'Admin',
     'sub-admin': 'Sub-Admin',
     'supervisor': 'Supervisor',
