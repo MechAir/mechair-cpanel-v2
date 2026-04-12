@@ -250,6 +250,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
     const [previewData, setPreviewData] = useState<{
         temp: number[]; co2: number[]; o2: number[]; c2h4: number[]
         labels: string[]
+        rawTimestamps: string[]
         // Per-reading trigger arrays
         triggersCO2: boolean[]
         triggersC2H4: boolean[]
@@ -292,6 +293,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
                 c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
                 labels: readings.map(r => formatLabel(r.timestamp)),
+                rawTimestamps: readings.map(r => r.timestamp),
                 // Each reading has its own trigger flag inside the corresponding room object
                 triggersCO2: readings.map(r => !!(r as any)[`room${parseInt(roomKey.replace('R', ''), 10)}`]?.triggerco2),
                 triggersC2H4: readings.map(r => !!(r as any)[`room${parseInt(roomKey.replace('R', ''), 10)}`]?.triggerc2h4),
@@ -558,19 +560,69 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const rangeLabel = RANGE_OPTIONS.find(o => o.key === selectedRange)?.label ?? 'Custom'
             const generatedAt = new Date().toLocaleString()
 
-            const dataRows = previewData.labels.map((label, i) => ({
-                'Timestamp': label,
+            // Format timestamp as "12 April 2026 12:45:26"
+            const formatFullDate = (ts: string | number) => {
+                const d = new Date(ts)
+                const day = d.getDate()
+                const month = d.toLocaleString('en-US', { month: 'long' })
+                const year = d.getFullYear()
+                const hours = d.getHours().toString().padStart(2, '0')
+                const mins = d.getMinutes().toString().padStart(2, '0')
+                const secs = d.getSeconds().toString().padStart(2, '0')
+                return `${day} ${month} ${year} ${hours}:${mins}:${secs}`
+            }
+
+            // Build reading rows with full timestamps
+            const readingRows = (previewData.rawTimestamps || previewData.labels).map((ts: string, i: number) => ({
+                _ts: new Date(ts).getTime(),
+                _type: 'reading' as const,
+                'Date & Time': formatFullDate(ts),
+                'Type': 'Reading',
                 'Temperature (°C)': previewData.temp[i] ?? '',
                 'CO₂ (ppm)': previewData.co2[i] ?? '',
                 'Humidity (%)': previewData.o2[i] ?? '',
                 'C₂H₄ / Ethylene (ppm)': previewData.c2h4[i] ?? '',
                 'CO₂ Triggered': previewData.triggersCO2[i] ? 'EXH-ON' : '',
                 'C₂H₄ Triggered': previewData.triggersC2H4[i] ? 'SOV-ON' : '',
+                'Event': '',
             }))
 
-            const wsData = utils.json_to_sheet(dataRows)
+            // Fetch events for this device in the same time range
+            let eventRows: any[] = []
+            try {
+                const params = buildApiParams(selectedRange, customFrom, customTo)
+                if (params) {
+                    const eventsRes = await fetch(`${API_BASE}/devices/${deviceId}/events/range?${params.toString()}`)
+                    if (eventsRes.ok) {
+                        const eventsJson = await eventsRes.json()
+                        const events = eventsJson.data?.events || eventsJson.data || []
+                        eventRows = events.map((evt: any) => ({
+                            _ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
+                            _type: 'event' as const,
+                            'Date & Time': formatFullDate(typeof evt.timestamp === 'number' ? evt.timestamp : evt.timestamp),
+                            'Type': evt.eventType || 'Event',
+                            'Temperature (°C)': '',
+                            'CO₂ (ppm)': '',
+                            'Humidity (%)': '',
+                            'C₂H₄ / Ethylene (ppm)': '',
+                            'CO₂ Triggered': '',
+                            'C₂H₄ Triggered': '',
+                            'Event': `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
+                        }))
+                    }
+                }
+            } catch (e) {
+                console.log('Events fetch failed (non-critical):', e)
+            }
+
+            // Merge readings + events sorted by timestamp
+            const allRows = [...readingRows, ...eventRows]
+                .sort((a, b) => a._ts - b._ts)
+                .map(({ _ts, _type, ...row }) => row)
+
+            const wsData = utils.json_to_sheet(allRows)
             wsData['!cols'] = [
-                { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 10 }, { wch: 24 }, { wch: 16 }, { wch: 16 }
+                { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 40 }
             ]
 
             const summaryRows = METRICS.map(m => {
@@ -605,9 +657,10 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 { 'Field': 'Room', 'Value': `Room ${roomId}` },
                 { 'Field': 'Report Range', 'Value': rangeLabel },
                 { 'Field': 'Data Points', 'Value': previewData.labels.length },
+                { 'Field': 'Events Logged', 'Value': eventRows.length },
                 { 'Field': 'CO₂ Triggered Readings', 'Value': previewData.triggersCO2.filter(Boolean).length },
                 { 'Field': 'C₂H₄ Triggered Readings', 'Value': previewData.triggersC2H4.filter(Boolean).length },
-                { 'Field': 'Generated', 'Value': generatedAt },
+                { 'Field': 'Generated', 'Value': formatFullDate(new Date().toISOString()) },
                 { 'Field': 'Platform', 'Value': 'Mech Air IoT Platform' },
             ]
             const wsInfo = utils.json_to_sheet(infoRows)
@@ -624,7 +677,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             console.error('Excel export failed:', e)
             setError('Failed to export Excel. Please try again.')
         } finally { setExportingXlsx(false) }
-    }, [previewData, selectedRange, deviceId, roomId])
+    }, [previewData, selectedRange, deviceId, roomId, customFrom, customTo])
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)' }}>
