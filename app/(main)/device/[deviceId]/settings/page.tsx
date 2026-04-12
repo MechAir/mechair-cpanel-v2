@@ -139,7 +139,8 @@ function SaveButton({ saving, saved, onClick, disabled }: { saving: boolean; sav
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function EmsTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomType; deviceId: string; readOnly?: boolean }) {
-  const emsRooms: EmsRoomType[] = ['Room 1', 'Room 2', 'Room 3', 'Room 4']
+  const roomCount = getDeviceType(deviceId).rooms
+  const emsRooms: EmsRoomType[] = Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`)
   const [settings, setSettings] = useState<Record<EmsRoomType, EmsRoomSettings>>(Object.fromEntries(emsRooms.map(r => [r, { ...defaultEmsSettings }])) as Record<EmsRoomType, EmsRoomSettings>)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -202,7 +203,8 @@ function EmsTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoom
 }
 
 function EmsManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomType; deviceId: string; readOnly?: boolean }) {
-  const emsRooms: EmsRoomType[] = ['Room 1', 'Room 2', 'Room 3', 'Room 4']
+  const roomCount = getDeviceType(deviceId).rooms
+  const emsRooms: EmsRoomType[] = Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`)
   const [settings, setSettings] = useState<Record<EmsRoomType, EmsManualSettings>>(Object.fromEntries(emsRooms.map(r => [r, { ...defaultEmsManual }])) as Record<EmsRoomType, EmsManualSettings>)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -250,7 +252,8 @@ function EmsManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
 }
 
 function EmsPumpTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomType; deviceId: string; readOnly?: boolean }) {
-  const emsRooms: EmsRoomType[] = ['Room 1', 'Room 2', 'Room 3', 'Room 4']
+  const roomCount = getDeviceType(deviceId).rooms
+  const emsRooms: EmsRoomType[] = Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`)
   const [settings, setSettings] = useState<Record<EmsRoomType, EmsPumpSettings>>(Object.fromEntries(emsRooms.map(r => [r, { ...defaultEmsPump }])) as Record<EmsRoomType, EmsPumpSettings>)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -305,7 +308,8 @@ function EmsPumpTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomTyp
 }
 
 function EmsRecipesTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boolean }) {
-  const emsRooms: EmsRoomType[] = ['Room 1', 'Room 2', 'Room 3', 'Room 4']
+  const roomCount = getDeviceType(deviceId).rooms
+  const emsRooms: EmsRoomType[] = Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`)
   const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
