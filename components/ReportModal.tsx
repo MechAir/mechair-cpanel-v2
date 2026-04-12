@@ -278,7 +278,10 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const json = await res.json()
             if (!json.success) throw new Error(json.message ?? 'API returned failure')
 
-            const readings: RangeReading[] = json.data.readings ?? []
+            // Sort ascending so report rows go oldest → newest
+            const readings: RangeReading[] = (json.data.readings ?? []).slice().sort(
+                (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            )
             const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
 
             const formatLabel = (ts: string) => {
