@@ -7,7 +7,7 @@ import { getDeviceType } from '@/utils/deviceTypes'
 import { useIoT } from '@/utils/useIoT'
 
 const POLL_INTERVAL_MS = 10000
-const LIVE_POINTS_COUNT = 12
+const LIVE_POINTS_COUNT = 15
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
 
 const ROOM_PREFIX: Record<string, string> = Object.fromEntries(
@@ -1226,7 +1226,10 @@ export default function DetailedGraphsPage() {
       const json = await res.json()
       if (!json.success) { setAllData(prev => ({ ...prev, loading: false })); return }
 
-      const readings: RangeReading[] = json.data.readings ?? []
+      // API may return descending — sort ascending so newest data appears on the right
+      const readings: RangeReading[] = (json.data.readings ?? []).slice().sort(
+        (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      )
       const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
       const labels = readings.map(r => formatLabel(r.timestamp, range.mode))
       const lastIdx = readings.length - 1
