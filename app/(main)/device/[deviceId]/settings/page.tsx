@@ -313,8 +313,9 @@ function EmsRecipesTab({ deviceId, readOnly }: { deviceId: string; readOnly?: bo
   const [view, setView] = useState<'assignment' | 'select' | 'detail'>('assignment')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isNew, setIsNew] = useState(false)
-  const [assignments, setAssignments] = useState<Record<EmsRoomType, string>>({ ...DEFAULT_ROOM_ASSIGNMENTS })
-
+const [assignments, setAssignments] = useState<Record<EmsRoomType, string>>(
+    Object.fromEntries(emsRooms.map(r => [r, 'None'])) as Record<EmsRoomType, string>
+  )
   useEffect(() => {
     Promise.all([
       apiGet<{ recipes: Recipe[] }>(`/devices/${deviceId}/recipes`),
@@ -322,7 +323,7 @@ function EmsRecipesTab({ deviceId, readOnly }: { deviceId: string; readOnly?: bo
     ]).then(([recData, assData]) => {
       if (recData?.recipes?.length) setRecipes(recData.recipes)
       if (assData?.assignments) {
-        const mapped = { ...DEFAULT_ROOM_ASSIGNMENTS }
+        const mapped = Object.fromEntries(emsRooms.map(r => [r, 'None'])) as Record<EmsRoomType, string>
         emsRooms.forEach(room => {
           const id = EMS_ROOM_ID_MAP[room]
           const recId = assData.assignments[id]
@@ -356,10 +357,14 @@ function EmsRecipesTab({ deviceId, readOnly }: { deviceId: string; readOnly?: bo
           const mapped = { ...prev }
           incoming.forEach((entry: { roomId?: string; recipeId?: string | null }) => {
             const roomEntry = Object.entries(EMS_ROOM_ID_MAP).find(([, id]) => id === entry.roomId)
-            if (roomEntry && entry.recipeId) {
+            if (roomEntry) {
               const room = roomEntry[0] as EmsRoomType
-              const match = recipes.find(r => r.id === entry.recipeId)
-              if (match) mapped[room] = match.name
+              if (entry.recipeId) {
+                const match = recipes.find(r => r.id === entry.recipeId)
+                mapped[room] = match ? match.name : 'None'
+              } else {
+                mapped[room] = 'None'
+              }
             }
           })
           return mapped
@@ -389,6 +394,7 @@ function EmsRecipesTab({ deviceId, readOnly }: { deviceId: string; readOnly?: bo
             <label className="text-sm font-semibold text-gray-700 block mb-1.5">{room}:</label>
             <select value={assignments[room]} onChange={e => !readOnly && setAssignments(p => ({ ...p, [room]: e.target.value }))} disabled={readOnly}
               className="w-full appearance-none rounded-xl border-2 border-[#2B8DB8] bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none">
+              <option value="None">None</option>
               {recipes.map(r => <option key={r.id}>{r.name}</option>)}
             </select>
           </div>
