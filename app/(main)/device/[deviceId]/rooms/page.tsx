@@ -19,6 +19,14 @@ interface RoomData {
   exhOn: boolean
   // MLH extras
   compOn?: boolean
+  // Recipe runtime status (sent from ESP32)
+  recipeName?: string | null
+  recipeStep?: number
+  recipeTotalSteps?: number
+  recipeStepElapsedSec?: number
+  recipeStepDurationSec?: number
+  c2h4Trigger?: number
+  co2Trigger?: number
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
@@ -38,6 +46,78 @@ function ConfirmModal({ title, message, confirmLabel, confirmClassName, onConfir
           <button onClick={onConfirm} className={`flex-1 px-4 py-2.5 rounded-xl font-semibold text-white text-sm ${confirmClassName ?? 'bg-[#5A7C8C] hover:bg-[#4a6b7a]'}`}>{confirmLabel}</button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Recipe Status Block (used inside EMS room cards) ──────────────────────────
+function RecipeStatusBlock({ room }: { room: RoomData }) {
+  const hasRecipe = !!room.recipeName && room.recipeName.toLowerCase() !== 'none'
+  const totalSteps = room.recipeTotalSteps ?? 0
+  const currentStep = room.recipeStep ?? 0
+  const elapsed = room.recipeStepElapsedSec ?? 0
+  const duration = room.recipeStepDurationSec ?? 0
+  const progressPct = duration > 0 ? Math.min(100, Math.max(0, (elapsed / duration) * 100)) : 0
+
+  // Format seconds → "HH:MM:SS"
+  const fmt = (sec: number) => {
+    if (!Number.isFinite(sec) || sec < 0) sec = 0
+    const h = Math.floor(sec / 3600).toString().padStart(2, '0')
+    const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0')
+    const s = Math.floor(sec % 60).toString().padStart(2, '0')
+    return `${h}:${m}:${s}`
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-sm rounded-xl p-3 mb-3 border border-white/10 shadow-inner">
+      {/* Header row: recipe name + step badge */}
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${hasRecipe ? 'bg-emerald-400 animate-pulse' : 'bg-white/30'}`} />
+          <div className="min-w-0">
+            <p className="text-[9px] uppercase tracking-wider text-white/50 font-semibold leading-tight">Recipe</p>
+            <p className={`text-sm font-bold truncate leading-tight ${hasRecipe ? 'text-white' : 'text-white/40 italic'}`}>
+              {hasRecipe ? room.recipeName : 'None'}
+            </p>
+          </div>
+        </div>
+        {hasRecipe && totalSteps > 0 && (
+          <div className="bg-white/15 px-2 py-0.5 rounded-full flex-shrink-0">
+            <span className="text-[10px] font-bold text-white whitespace-nowrap">Step {currentStep}/{totalSteps}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Progress bar (only if a recipe is running) */}
+      {hasRecipe && duration > 0 && (
+        <>
+          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden mb-1.5">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[10px] font-mono text-white/70">
+            <span>{fmt(elapsed)}</span>
+            <span className="text-white/40">/</span>
+            <span>{fmt(duration)}</span>
+          </div>
+        </>
+      )}
+
+      {/* Trigger limits row */}
+      {(room.c2h4Trigger !== undefined || room.co2Trigger !== undefined) && (
+        <div className="grid grid-cols-2 gap-1.5 mt-2.5 pt-2.5 border-t border-white/10">
+          <div className="flex items-center justify-between bg-white/5 rounded-md px-2 py-1">
+            <span className="text-[9px] uppercase tracking-wider text-white/50 font-semibold">C₂H₄ Trig</span>
+            <span className="text-[11px] font-bold text-amber-300">{room.c2h4Trigger?.toFixed(2) ?? '--'}</span>
+          </div>
+          <div className="flex items-center justify-between bg-white/5 rounded-md px-2 py-1">
+            <span className="text-[9px] uppercase tracking-wider text-white/50 font-semibold">CO₂ Trig</span>
+            <span className="text-[11px] font-bold text-orange-300">{room.co2Trigger?.toFixed(0) ?? '--'}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -67,6 +147,9 @@ function EmsRoomCard({ room, isManual, hasPendingSov, hasPendingExh, hasPendingC
         <div className="bg-white/10 rounded-lg p-2.5"><p className="text-white/60 text-xs">O₂ / Humid</p><p className="text-white font-semibold text-sm">{room.humid?.toFixed(1) ?? '--'}%</p></div>
         <div className="bg-white/10 rounded-lg p-2.5"><p className="text-white/60 text-xs">C₂H₄</p><p className="text-white font-semibold text-sm">{room.c2h4?.toFixed(2) ?? '--'} ppm</p></div>
       </div>
+
+      {/* ── Recipe Status Card ─────────────────────────────────────── */}
+      <RecipeStatusBlock room={room} />
       {isManual && (
         <div className="flex gap-2">
           <button onClick={onToggleSov}
