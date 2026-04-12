@@ -1078,36 +1078,33 @@ function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading,
 
 function buildRangeUrl(deviceId: string, range: TimeRange): string {
   const base = `${API_BASE}/devices/${deviceId}/readings/range`
-  const params = new URLSearchParams({ maxPoints: '60' })
+  // No maxPoints cap — return ALL readings in the time window
+  const params = new URLSearchParams({ mode: 'custom' })
   const now = new Date()
 
   switch (range.mode) {
     case 'last_hour':
-      params.set('mode', 'custom')
       params.set('from', new Date(now.getTime() - 60 * 60 * 1000).toISOString())
       params.set('to', now.toISOString())
       break
     case '6h':
-      params.set('mode', 'custom')
       params.set('from', new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString())
       params.set('to', now.toISOString())
       break
     case '1d':
-      params.set('mode', 'custom')
       params.set('from', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
       params.set('to', now.toISOString())
       break
     case '1w':
-      params.set('mode', 'custom')
       params.set('from', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString())
       params.set('to', now.toISOString())
       break
     case 'month':
-      params.set('mode', 'month')   // ← your API does understand this one
+      params.set('from', new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      params.set('to', now.toISOString())
       break
     case 'custom':
       if (range.customFrom && range.customTo) {
-        params.set('mode', 'custom')
         params.set('from', range.customFrom)
         params.set('to', range.customTo)
       }
