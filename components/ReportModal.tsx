@@ -596,7 +596,14 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                     if (eventsRes.ok) {
                         const eventsJson = await eventsRes.json()
                         const events = eventsJson.data?.events || eventsJson.data || []
-                        eventRows = events.map((evt: any) => ({
+                        // Filter events to only this room (or device-level events with no room metric)
+                        const currentRoomId = `room-${roomId}`
+                        const filteredEvents = events.filter((evt: any) =>
+                            !evt.metric ||
+                            evt.metric === currentRoomId ||
+                            (!evt.metric.startsWith('room-')) // device-wide events like mode/pump
+                        )
+                        eventRows = filteredEvents.map((evt: any) => ({
                             _ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
                             _type: 'event' as const,
                             'Date & Time': formatFullDate(typeof evt.timestamp === 'number' ? evt.timestamp : evt.timestamp),
