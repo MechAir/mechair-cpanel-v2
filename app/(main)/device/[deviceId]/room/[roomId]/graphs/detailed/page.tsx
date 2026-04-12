@@ -1152,11 +1152,53 @@ export default function DetailedGraphsPage() {
   // ── IoT WebSocket live mode ───────────────────────────────────────────────
   // Subscribe to the device's readings topic. We always subscribe (rules of hooks),
   // but we only update chart state when the user is in `live` mode.
-  // Reset the chart when the user toggles live mode on.
+  // When entering live mode, seed the chart with the last 15 readings from the API
+  // so the graph isn't empty — then the WebSocket takes over and streams new data.
   useEffect(() => {
     if (timeRange.mode !== 'live') return
-    setAllData({ temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], labels: [], loading: false })
+    setAllData({ temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], labels: [], loading: true })
     setLiveStatus('connecting')
+
+    // Seed with last 15 readings
+    let cancelled = false
+    ;(async () => {
+      try {
+        const params = new URLSearchParams({ maxPoints: String(LIVE_POINTS_COUNT) })
+        const now = new Date()
+        params.set('mode', 'custom')
+        params.set('from', new Date(now.getTime() - 60 * 60 * 1000).toISOString()) // last 1h window
+        params.set('to', now.toISOString())
+        const res = await fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params.toString()}`)
+        if (!res.ok) return
+        const json = await res.json()
+        if (!json.success || cancelled) return
+        const allReadings: RangeReading[] = (json.data.readings ?? []).slice().sort(
+          (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        )
+        // Take only the last LIVE_POINTS_COUNT readings
+        const readings = allReadings.slice(-LIVE_POINTS_COUNT)
+        const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
+        const roomIdx = parseInt(roomKey.replace('R', ''), 10)
+        const formatLiveLabel = (ts: string) => {
+          const d = new Date(ts)
+          return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
+        }
+        setAllData({
+          loading: false,
+          labels: readings.map(r => formatLiveLabel(r.timestamp)),
+          temp: readings.map(r => extractMetric(r, roomKey, 'temp')),
+          co2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
+          o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
+          c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
+          triggersCO2: readings.map(r => !!(r as any)[`room${roomIdx}`]?.triggerco2),
+          triggersC2H4: readings.map(r => !!(r as any)[`room${roomIdx}`]?.triggerc2h4),
+        })
+        setLiveStatus('ok')
+      } catch {
+        if (!cancelled) setAllData(prev => ({ ...prev, loading: false }))
+      }
+    })()
+    return () => { cancelled = true }
   }, [timeRange.mode, deviceId, roomId])
 
   useIoT(
