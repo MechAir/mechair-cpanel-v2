@@ -25,8 +25,10 @@ interface RoomData {
   recipeTotalSteps?: number
   recipeStepElapsedSec?: number
   recipeStepDurationSec?: number
-  c2h4Trigger?: number
-  co2Trigger?: number
+  c2h4TriggerLow?: number
+  c2h4TriggerHigh?: number
+  co2TriggerLow?: number
+  co2TriggerHigh?: number
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
@@ -105,16 +107,37 @@ function RecipeStatusBlock({ room }: { room: RoomData }) {
         </>
       )}
 
-      {/* Trigger limits row */}
-      {(room.c2h4Trigger !== undefined || room.co2Trigger !== undefined) && (
-        <div className="grid grid-cols-2 gap-1.5 mt-2.5 pt-2.5 border-t border-white/10">
-          <div className="flex items-center justify-between bg-white/5 rounded-md px-2 py-1">
-            <span className="text-[9px] uppercase tracking-wider text-white/50 font-semibold">C₂H₄ Trig</span>
-            <span className="text-[11px] font-bold text-amber-300">{room.c2h4Trigger?.toFixed(2) ?? '--'}</span>
+      {/* Trigger limits — lower & upper for C₂H₄ and CO₂ */}
+      {(room.c2h4TriggerLow !== undefined || room.c2h4TriggerHigh !== undefined ||
+        room.co2TriggerLow !== undefined || room.co2TriggerHigh !== undefined) && (
+        <div className="mt-2.5 pt-2.5 border-t border-white/10 space-y-1.5">
+          {/* C₂H₄ row */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] uppercase tracking-wider text-amber-300/80 font-bold w-10 flex-shrink-0">C₂H₄</span>
+            <div className="flex-1 grid grid-cols-2 gap-1.5">
+              <div className="flex items-center justify-between bg-white/5 rounded-md px-2 py-1">
+                <span className="text-[9px] uppercase tracking-wider text-white/40 font-semibold">Low</span>
+                <span className="text-[11px] font-bold text-amber-200">{room.c2h4TriggerLow?.toFixed(2) ?? '--'}</span>
+              </div>
+              <div className="flex items-center justify-between bg-white/5 rounded-md px-2 py-1">
+                <span className="text-[9px] uppercase tracking-wider text-white/40 font-semibold">High</span>
+                <span className="text-[11px] font-bold text-amber-200">{room.c2h4TriggerHigh?.toFixed(2) ?? '--'}</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-between bg-white/5 rounded-md px-2 py-1">
-            <span className="text-[9px] uppercase tracking-wider text-white/50 font-semibold">CO₂ Trig</span>
-            <span className="text-[11px] font-bold text-orange-300">{room.co2Trigger?.toFixed(0) ?? '--'}</span>
+          {/* CO₂ row */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] uppercase tracking-wider text-orange-300/80 font-bold w-10 flex-shrink-0">CO₂</span>
+            <div className="flex-1 grid grid-cols-2 gap-1.5">
+              <div className="flex items-center justify-between bg-white/5 rounded-md px-2 py-1">
+                <span className="text-[9px] uppercase tracking-wider text-white/40 font-semibold">Low</span>
+                <span className="text-[11px] font-bold text-orange-200">{room.co2TriggerLow?.toFixed(0) ?? '--'}</span>
+              </div>
+              <div className="flex items-center justify-between bg-white/5 rounded-md px-2 py-1">
+                <span className="text-[9px] uppercase tracking-wider text-white/40 font-semibold">High</span>
+                <span className="text-[11px] font-bold text-orange-200">{room.co2TriggerHigh?.toFixed(0) ?? '--'}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
