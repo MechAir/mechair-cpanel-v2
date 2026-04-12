@@ -446,6 +446,21 @@ export default function DeviceRoomsPage() {
           fetchedRooms = applyReadingToRooms(fetchedRooms, readingData.data.reading)
         }
 
+        // ── TEMP MOCK DATA — remove once ESP32 sends real recipe status ──
+        fetchedRooms = fetchedRooms.map((room, i) => ({
+          ...room,
+          recipeName: i === 0 ? 'POTATO' : i === 1 ? 'TOMATO' : i === 2 ? 'BANANA' : null,
+          recipeStep: i === 0 ? 2 : i === 1 ? 5 : i === 2 ? 1 : 0,
+          recipeTotalSteps: i === 0 ? 10 : i === 1 ? 8 : i === 2 ? 5 : 0,
+          recipeStepElapsedSec: i === 0 ? 5 * 3600 + 20 * 60 + 30 : i === 1 ? 45 * 60 : i === 2 ? 30 : 0,
+          recipeStepDurationSec: i === 0 ? 96 * 3600 : i === 1 ? 4 * 3600 : i === 2 ? 24 * 3600 : 0,
+          c2h4TriggerLow: 0.5,
+          c2h4TriggerHigh: 2.5,
+          co2TriggerLow: 800,
+          co2TriggerHigh: 1500,
+        }))
+        // ── END MOCK ──
+
         setRooms(fetchedRooms)
       } catch (err) {
         console.error('Failed to fetch device state:', err)
