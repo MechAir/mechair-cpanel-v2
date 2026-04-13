@@ -508,13 +508,41 @@ export default function DeviceRoomsPage() {
         }
       }
       if (topic.endsWith('/state')) {
-        // Live relay state from device
+        // Live relay state from device — merges SOV/Exh/Pump/HX/PF + any recipe fields
         if (payload.rooms) {
           setRooms(prev => prev.map(room => {
             const idx = room.id.replace('room-', '')
-            const r = payload.rooms.find((x: any) => x.id === parseInt(idx))
+            // Match by id field (accepts "room-1", "1", or 1)
+            const r = payload.rooms.find((x: any) => {
+              const xid = typeof x.id === 'string' ? x.id.replace('room-', '') : String(x.id)
+              return xid === idx
+            })
             if (!r) return room
-            return { ...room, isOn: r.on, compOn: r.comp, sovOn: r.sov }
+            return {
+              ...room,
+              ...(r.on        !== undefined && { isOn:   r.on }),
+              ...(r.isOn      !== undefined && { isOn:   r.isOn }),
+              ...(r.comp      !== undefined && { compOn: r.comp }),
+              ...(r.compOn    !== undefined && { compOn: r.compOn }),
+              ...(r.sov       !== undefined && { sovOn:  r.sov }),
+              ...(r.sovOn     !== undefined && { sovOn:  r.sovOn }),
+              ...(r.exh       !== undefined && { exhOn:  r.exh }),
+              ...(r.exhOn     !== undefined && { exhOn:  r.exhOn }),
+              ...(r.pump      !== undefined && { pumpOn: r.pump }),
+              ...(r.pumpOn    !== undefined && { pumpOn: r.pumpOn }),
+              ...(r.hxOn      !== undefined && { hxOn:   r.hxOn }),
+              ...(r.pfOn      !== undefined && { pfOn:   r.pfOn }),
+              // Recipe fields — pass through if present
+              ...(r.recipeName           !== undefined && { recipeName: r.recipeName }),
+              ...(r.recipeStep           !== undefined && { recipeStep: r.recipeStep }),
+              ...(r.recipeTotalSteps     !== undefined && { recipeTotalSteps: r.recipeTotalSteps }),
+              ...(r.recipeStepElapsedSec !== undefined && { recipeStepElapsedSec: r.recipeStepElapsedSec }),
+              ...(r.recipeStepDurationSec!== undefined && { recipeStepDurationSec: r.recipeStepDurationSec }),
+              ...(r.c2h4TriggerLow       !== undefined && { c2h4TriggerLow: r.c2h4TriggerLow }),
+              ...(r.c2h4TriggerHigh      !== undefined && { c2h4TriggerHigh: r.c2h4TriggerHigh }),
+              ...(r.co2TriggerLow        !== undefined && { co2TriggerLow: r.co2TriggerLow }),
+              ...(r.co2TriggerHigh       !== undefined && { co2TriggerHigh: r.co2TriggerHigh }),
+            }
           }))
         }
         if (payload.mode) setIsAuto(payload.mode === 'auto')
