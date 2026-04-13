@@ -323,15 +323,24 @@ const [assignments, setAssignments] = useState<Record<EmsRoomType, string>>(
   useEffect(() => {
     Promise.all([
       apiGet<{ recipes: Recipe[] }>(`/devices/${deviceId}/recipes`),
-      apiGet<{ assignments: Record<string, string | null> }>(`/devices/${deviceId}/room-recipe`)
+      apiGet<{ assignments: Array<{ roomId: string; recipeId: string | null }> }>(`/devices/${deviceId}/room-recipe`)
     ]).then(([recData, assData]) => {
+      const recipeList = recData?.recipes?.length ? recData.recipes : INITIAL_RECIPES
       if (recData?.recipes?.length) setRecipes(recData.recipes)
-      if (assData?.assignments) {
-        const mapped = Object.fromEntries(emsRooms.map(r => [r, 'None'])) as Record<EmsRoomType, string>
-        emsRooms.forEach(room => {
-          const id = EMS_ROOM_ID_MAP[room]
-          const recId = assData.assignments[id]
-          if (recId) { const match = recData?.recipes?.find(r => r.id === recId); if (match) mapped[room] = match.name }
+      // Lambda returns { assignments: [{roomId:"room-1", recipeId:"potato"}, ...] }
+      if (Array.isArray(assData?.assignments)) {
+        const mapped = { ...DEFAULT_ROOM_ASSIGNMENTS }
+        assData.assignments.forEach(entry => {
+          const roomEntry = Object.entries(EMS_ROOM_ID_MAP).find(([, id]) => id === entry.roomId)
+          if (!roomEntry || !entry.recipeId) return
+          const room = roomEntry[0] as EmsRoomType
+          // Match by id OR name, case-insensitive (ESP32 sends lowercased name)
+          const needle = String(entry.recipeId).toLowerCase()
+          const match = recipeList.find(r =>
+            r.id.toLowerCase() === needle || r.name.toLowerCase() === needle
+          )
+          if (match) mapped[room] = match.name
+          else mapped[room] = 'None'
         })
         setAssignments(mapped)
       }
@@ -361,15 +370,18 @@ const [assignments, setAssignments] = useState<Record<EmsRoomType, string>>(
           const mapped = { ...prev }
           incoming.forEach((entry: { roomId?: string; recipeId?: string | null }) => {
             const roomEntry = Object.entries(EMS_ROOM_ID_MAP).find(([, id]) => id === entry.roomId)
-            if (roomEntry) {
-              const room = roomEntry[0] as EmsRoomType
-              if (entry.recipeId) {
-                const match = recipes.find(r => r.id === entry.recipeId)
-                mapped[room] = match ? match.name : 'None'
-              } else {
-                mapped[room] = 'None'
-              }
+            if (!roomEntry) return
+            const room = roomEntry[0] as EmsRoomType
+            if (!entry.recipeId) {
+              mapped[room] = 'None'
+              return
             }
+            // Match by id OR name, case-insensitive (ESP32 sends lowercased name)
+            const needle = String(entry.recipeId).toLowerCase()
+            const match = recipes.find(r =>
+              r.id.toLowerCase() === needle || r.name.toLowerCase() === needle
+            )
+            mapped[room] = match ? match.name : 'None'
           })
           return mapped
         })
