@@ -17,6 +17,7 @@ interface RoomData {
   c2h4: number
   sovOn: boolean
   exhOn: boolean
+  pumpOn?: boolean
   // MLH extras
   compOn?: boolean
   // Recipe runtime status (sent from ESP32)
@@ -189,6 +190,7 @@ function EmsRoomCard({ room, isManual, hasPendingSov, hasPendingExh, hasPendingC
         <div className="flex gap-2">
           <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.sovOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/40'}`}>SOV {room.sovOn ? 'ON' : 'OFF'}</span>
           <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.exhOn ? 'bg-orange-500/40 text-orange-200' : 'bg-white/10 text-white/40'}`}>Exhaust {room.exhOn ? 'ON' : 'OFF'}</span>
+          <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.pumpOn ? 'bg-cyan-500/40 text-cyan-200' : 'bg-white/10 text-white/40'}`}>Pump {room.pumpOn ? 'ON' : 'OFF'}</span>
         </div>
       )}
     </div>
@@ -232,8 +234,9 @@ function MlhRoomCard({ room, isManual, hasPendingComp, hasPendingSov, hasPending
       )}
       {!isManual && (
         <div className="flex gap-2">
-          <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.compOn ? 'bg-blue-500/40 text-blue-200' : 'bg-white/10 text-white/40'}`}>Comp {room.compOn ? 'ON' : 'OFF'}</span>
-          <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.sovOn ? 'bg-cyan-500/40 text-cyan-200' : 'bg-white/10 text-white/40'}`}>Cool SOV {room.sovOn ? 'ON' : 'OFF'}</span>
+          <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.sovOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/40'}`}>SOV {room.sovOn ? 'ON' : 'OFF'}</span>
+          <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.exhOn ? 'bg-orange-500/40 text-orange-200' : 'bg-white/10 text-white/40'}`}>Exhaust {room.exhOn ? 'ON' : 'OFF'}</span>
+          <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.pumpOn ? 'bg-cyan-500/40 text-cyan-200' : 'bg-white/10 text-white/40'}`}>Pump {room.pumpOn ? 'ON' : 'OFF'}</span>
         </div>
       )}
     </div>
