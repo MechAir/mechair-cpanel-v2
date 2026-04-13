@@ -1,6 +1,6 @@
 'use client'
 import { getUser } from '@/utils/auth'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useToast, ToastContainer } from '@/components/useToast'
 import { getDeviceType } from '@/utils/deviceTypes'
@@ -366,6 +366,7 @@ export default function DeviceRoomsPage() {
 
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isAuto, setIsAuto] = useState(true)
+  const lastModeChangeAt = useRef<number>(0)
   const [rooms, setRooms] = useState<RoomData[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -545,7 +546,12 @@ export default function DeviceRoomsPage() {
             }
           }))
         }
-        if (payload.mode) setIsAuto(payload.mode === 'auto')
+        // Ignore mode echoes for 5s after the user just toggled — prevents stale
+        // device state from snapping the UI back. The firmware will eventually
+        // publish the correct mode and at that point we accept it again.
+        if (payload.mode && Date.now() - lastModeChangeAt.current > 5000) {
+          setIsAuto(payload.mode === 'auto')
+        }
       }
     }, [])
   )
@@ -618,6 +624,7 @@ export default function DeviceRoomsPage() {
   const handleModeConfirm = async () => {
     setShowModeConfirm(false)
     const newMode = isAuto ? 'manual' : 'auto'
+    lastModeChangeAt.current = Date.now()   // ignore device echoes for ~5s
     setIsAuto(!isAuto); setPendingRelay1({}); setPendingRelay2({}); setPendingResetChanges({})
     try {
       await fetch(`${API_BASE}/devices/${deviceId}/state`, {
