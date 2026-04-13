@@ -18,7 +18,7 @@ type EmsTabType = 'timings' | 'manual' | 'pump' | 'recipes' | 'limits'
 type EmsRoomType = string
 interface EmsRoomSettings {
   c2h4TriggerDiff: number; co2Setpoint: number; co2TriggerDiff: number
-  sovOnTime: TimingField; sovOffTime: TimingField; exhaustFanOn: TimingField; exhaustFanOff: TimingField
+  sovOnTime: TimingField; sovStartDelay: TimingField; exhaustFanOn: TimingField; exhaustFanOff: TimingField
 }
 interface EmsManualSettings { manualSovOnTime: TimingField; manualExhaustFanOnTime: TimingField }
 interface EmsPumpSettings { pumpEnable: boolean; pumpOnTime: TimingField; pumpOffTime: TimingField }
@@ -36,9 +36,9 @@ interface MlhManualSettings { manualCompressorOnTime: TimingField; manualSovOnTi
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const defaultEmsSettings: EmsRoomSettings = {
-  c2h4TriggerDiff: 10.0, co2Setpoint: 100, co2TriggerDiff: 5,
-  sovOnTime: { value: 10, unit: 'sec' }, sovOffTime: { value: 10, unit: 'sec' },
-  exhaustFanOn: { value: 10, unit: 'sec' }, exhaustFanOff: { value: 10, unit: 'sec' },
+  c2h4TriggerDiff: 0.5, co2Setpoint: 1000, co2TriggerDiff: 100,
+  sovOnTime: { value: 30, unit: 'sec' }, sovStartDelay: { value: 0, unit: 'sec' },
+  exhaustFanOn: { value: 45, unit: 'sec' }, exhaustFanOff: { value: 90, unit: 'sec' },
 }
 const defaultEmsManual: EmsManualSettings = {
   manualSovOnTime: { value: 15, unit: 'sec' }, manualExhaustFanOnTime: { value: 15, unit: 'sec' },
@@ -186,13 +186,13 @@ function EmsTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoom
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Setpoints</p>
           <SetpointRow label="C2H4 Trigger Diff:" value={cur.c2h4TriggerDiff} unit="ppm" step={0.1} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], c2h4TriggerDiff: parseFloat(v) || 0 } }))} />
-          <SetpointRow label="CO2 Setpoint:" value={cur.co2Setpoint} unit="%" readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2Setpoint: parseFloat(v) || 0 } }))} />
-          <SetpointRow label="CO2 Trigger Diff:" value={cur.co2TriggerDiff} unit="%" readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2TriggerDiff: parseFloat(v) || 0 } }))} />
+          <SetpointRow label="CO2 Setpoint:" value={cur.co2Setpoint} unit="ppm" readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2Setpoint: parseFloat(v) || 0 } }))} />
+          <SetpointRow label="CO2 Trigger Diff:" value={cur.co2TriggerDiff} unit="ppm" readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2TriggerDiff: parseFloat(v) || 0 } }))} />
         </div>
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Timings</p>
+          <TimingRow label="SOV Start Delay:" field={cur.sovStartDelay} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], sovStartDelay: { ...p[activeRoom].sovStartDelay, ...u } } }))} />
           <TimingRow label="SOV ON Time:" field={cur.sovOnTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], sovOnTime: { ...p[activeRoom].sovOnTime, ...u } } }))} />
-          <TimingRow label="SOV OFF Time:" field={cur.sovOffTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], sovOffTime: { ...p[activeRoom].sovOffTime, ...u } } }))} />
           <TimingRow label="Exhaust Fan ON:" field={cur.exhaustFanOn} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], exhaustFanOn: { ...p[activeRoom].exhaustFanOn, ...u } } }))} />
           <TimingRow label="Exhaust Fan OFF:" field={cur.exhaustFanOff} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], exhaustFanOff: { ...p[activeRoom].exhaustFanOff, ...u } } }))} />
         </div>
