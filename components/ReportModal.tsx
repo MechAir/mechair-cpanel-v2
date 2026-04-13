@@ -561,7 +561,6 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
         try {
             const { utils, writeFile } = await import('xlsx')
             const rangeLabel = RANGE_OPTIONS.find(o => o.key === selectedRange)?.label ?? 'Custom'
-            const generatedAt = new Date().toLocaleString()
 
             // Format timestamp as "12 April 2026 12:45:26"
             const formatFullDate = (ts: string | number) => {
@@ -575,51 +574,111 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 return `${day} ${month} ${year} ${hours}:${mins}:${secs}`
             }
 
-            // Build reading rows with full timestamps
-            const readingRows = (previewData.rawTimestamps || previewData.labels).map((ts: string, i: number) => ({
-                _ts: new Date(ts).getTime(),
-                _type: 'reading' as const,
-                'Date & Time': formatFullDate(ts),
-                'Type': 'Reading',
-                'Temperature (°C)': previewData.temp[i] ?? '',
-                'CO₂ (ppm)': previewData.co2[i] ?? '',
-                'Humidity (%)': previewData.o2[i] ?? '',
-                'C₂H₄ / Ethylene (ppm)': previewData.c2h4[i] ?? '',
-                'CO₂ Triggered': previewData.triggersCO2[i] ? 'EXH-ON' : '',
-                'C₂H₄ Triggered': previewData.triggersC2H4[i] ? 'SOV-ON' : '',
-                'Event': '',
-            }))
+            // Humanize the raw eventType enum from the Events table
+            const humanizeType = (et: string | undefined): string => {
+                switch (et) {
+                    case 'relay_change':    return 'Relay'
+                    case 'room_toggle':     return 'Room'
+                    case 'mode_change':     return 'Mode'
+                    case 'settings_change': return 'Settings'
+                    case 'state_update':    return 'State'
+                    default:                return et || 'Event'
+                }
+            }
 
-            // Fetch events for this device in the same time range
+            // Build a params object for the Excel fetches — identical to buildApiParams
+            // but overrides maxPoints to "0" so the Lambda returns every row in the window
+            // (getReadings lambda honors maxPoints=0 as "no cap").
+            const buildAllRowsParams = (): URLSearchParams | null => {
+                const p = buildApiParams(selectedRange, customFrom, customTo)
+                if (!p) return null
+                p.set('maxPoints', '0')
+                return p
+            }
+
+            const excelParams = buildAllRowsParams()
+            if (!excelParams) {
+                setError('Please select both From and To dates.')
+                setExportingXlsx(false)
+                return
+            }
+
+            // ─── Readings: fetch every row in the time window ───────────────────
+            // If the Lambda ever grows pagination, loop over nextToken. For today
+            // it returns everything in one shot, so the loop will run once.
+            const fetchedReadings: RangeReading[] = []
+            {
+                let nextToken: string | undefined = undefined
+                let safety = 50 // hard stop at 50 pages — prevents infinite loops
+                do {
+                    const p = new URLSearchParams(excelParams)
+                    if (nextToken) p.set('nextToken', nextToken)
+                    const res = await fetch(`${API_BASE}/devices/${deviceId}/readings/range?${p.toString()}`)
+                    if (!res.ok) {
+                        const body = await res.json().catch(() => ({}))
+                        throw new Error(body.message ?? `HTTP ${res.status}`)
+                    }
+                    const json = await res.json()
+                    if (!json.success) throw new Error(json.message ?? 'API returned failure')
+                    const pageReadings: RangeReading[] = json.data?.readings ?? []
+                    fetchedReadings.push(...pageReadings)
+                    nextToken = json.data?.nextToken
+                } while (nextToken && --safety > 0)
+            }
+
+            // Sort oldest → newest
+            fetchedReadings.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+
+            const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
+            const roomIdx = parseInt(roomKey.replace('R', ''), 10)
+
+            // Build one row per reading — uses extractMetric for per-metric values
+            // and pulls per-reading trigger flags from the room object directly.
+            const readingRows = fetchedReadings.map(r => {
+                const room = (r as any)[`room${roomIdx}`] ?? {}
+                return {
+                    _ts: new Date(r.timestamp).getTime(),
+                    _type: 'reading' as const,
+                    'Date & Time': formatFullDate(r.timestamp),
+                    'Type': 'Reading',
+                    'Temperature (°C)': extractMetric(r, roomKey, 'temp'),
+                    'CO₂ (ppm)': extractMetric(r, roomKey, 'CO2'),
+                    'Humidity (%)': extractMetric(r, roomKey, 'O2'),
+                    'C₂H₄ / Ethylene (ppm)': extractMetric(r, roomKey, 'C2H4'),
+                    'CO₂ Triggered': room.triggerco2 ? 'EXH-ON' : '',
+                    'C₂H₄ Triggered': room.triggerc2h4 ? 'SOV-ON' : '',
+                    'Event': '',
+                }
+            })
+
+            // ─── Events: same time window, filtered to this room + device-wide ──
             let eventRows: any[] = []
             try {
-                const params = buildApiParams(selectedRange, customFrom, customTo)
-                if (params) {
-                    const eventsRes = await fetch(`${API_BASE}/devices/${deviceId}/events/range?${params.toString()}`)
-                    if (eventsRes.ok) {
-                        const eventsJson = await eventsRes.json()
-                        const events = eventsJson.data?.events || eventsJson.data || []
-                        // Filter events to only this room (or device-level events with no room metric)
-                        const currentRoomId = `room-${roomId}`
-                        const filteredEvents = events.filter((evt: any) =>
-                            !evt.metric ||
-                            evt.metric === currentRoomId ||
-                            (!evt.metric.startsWith('room-')) // device-wide events like mode/pump
-                        )
-                        eventRows = filteredEvents.map((evt: any) => ({
-                            _ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
-                            _type: 'event' as const,
-                            'Date & Time': formatFullDate(typeof evt.timestamp === 'number' ? evt.timestamp : evt.timestamp),
-                            'Type': evt.eventType || 'Event',
-                            'Temperature (°C)': '',
-                            'CO₂ (ppm)': '',
-                            'Humidity (%)': '',
-                            'C₂H₄ / Ethylene (ppm)': '',
-                            'CO₂ Triggered': '',
-                            'C₂H₄ Triggered': '',
-                            'Event': `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
-                        }))
-                    }
+                const eventsRes = await fetch(`${API_BASE}/devices/${deviceId}/events/range?${excelParams.toString()}`)
+                if (eventsRes.ok) {
+                    const eventsJson = await eventsRes.json()
+                    const events = eventsJson.data?.events || eventsJson.data || []
+                    // Keep: events with no metric, events for THIS room, or device-wide
+                    // (metric doesn't start with "room-" — e.g. pump, mode, recipes, enabled-rooms)
+                    const currentRoomId = `room-${roomId}`
+                    const filteredEvents = events.filter((evt: any) =>
+                        !evt.metric ||
+                        evt.metric === currentRoomId ||
+                        (!String(evt.metric).startsWith('room-'))
+                    )
+                    eventRows = filteredEvents.map((evt: any) => ({
+                        _ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
+                        _type: 'event' as const,
+                        'Date & Time': formatFullDate(typeof evt.timestamp === 'number' ? evt.timestamp : evt.timestamp),
+                        'Type': humanizeType(evt.eventType),
+                        'Temperature (°C)': '',
+                        'CO₂ (ppm)': '',
+                        'Humidity (%)': '',
+                        'C₂H₄ / Ethylene (ppm)': '',
+                        'CO₂ Triggered': '',
+                        'C₂H₄ Triggered': '',
+                        'Event': `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
+                    }))
                 }
             } catch (e) {
                 console.log('Events fetch failed (non-critical):', e)
@@ -635,14 +694,16 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 40 }
             ]
 
+            // ─── Summary: recomputed from the full reading set (not previewData) ─
+            const extractAll = (m: MetricKey): number[] =>
+                fetchedReadings.map(r => extractMetric(r, roomKey, m))
+
             const summaryRows = METRICS.map(m => {
-                const vals = m.key === 'temp' ? previewData.temp
-                    : m.key === 'CO2' ? previewData.co2
-                        : m.key === 'O2' ? previewData.o2
-                            : previewData.c2h4
-                const triggers = m.key === 'CO2' ? previewData.triggersCO2
-                    : m.key === 'C2H4' ? previewData.triggersC2H4
-                        : vals.map(() => false)
+                const vals = extractAll(m.key)
+                const triggers =
+                    m.key === 'CO2'  ? fetchedReadings.map(r => !!(r as any)[`room${roomIdx}`]?.triggerco2)  :
+                    m.key === 'C2H4' ? fetchedReadings.map(r => !!(r as any)[`room${roomIdx}`]?.triggerc2h4) :
+                    vals.map(() => false)
                 const { min, max, avg } = minMax(vals)
                 return {
                     'Parameter': m.label,
@@ -662,14 +723,17 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }
             ]
 
+            const co2TrigCount  = fetchedReadings.filter(r => !!(r as any)[`room${roomIdx}`]?.triggerco2).length
+            const c2h4TrigCount = fetchedReadings.filter(r => !!(r as any)[`room${roomIdx}`]?.triggerc2h4).length
+
             const infoRows = [
                 { 'Field': 'Device ID', 'Value': deviceId },
                 { 'Field': 'Room', 'Value': `Room ${roomId}` },
                 { 'Field': 'Report Range', 'Value': rangeLabel },
-                { 'Field': 'Data Points', 'Value': previewData.labels.length },
+                { 'Field': 'Readings (rows)', 'Value': fetchedReadings.length },
                 { 'Field': 'Events Logged', 'Value': eventRows.length },
-                { 'Field': 'CO₂ Triggered Readings', 'Value': previewData.triggersCO2.filter(Boolean).length },
-                { 'Field': 'C₂H₄ Triggered Readings', 'Value': previewData.triggersC2H4.filter(Boolean).length },
+                { 'Field': 'CO₂ Triggered Readings', 'Value': co2TrigCount },
+                { 'Field': 'C₂H₄ Triggered Readings', 'Value': c2h4TrigCount },
                 { 'Field': 'Generated', 'Value': formatFullDate(new Date().toISOString()) },
                 { 'Field': 'Platform', 'Value': 'Mech Air IoT Platform' },
             ]
