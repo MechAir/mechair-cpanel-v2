@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { authHeaders } from '@/utils/auth'   // ← add this
+import { authHeaders, updateUser, deleteUser, isAdmin } from '@/utils/auth'
 
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
@@ -50,14 +50,49 @@ function RoleBadge({ role }: { role: string }) {
 function UserRow({
     user,
     indent = 0,
+    onChanged,
 }: {
     user: HierarchyUser
     indent?: number
     isLast?: boolean
+    onChanged?: () => void
 }) {
     const joinedDate = new Date(user.createdAt).toLocaleDateString('en-US', {
         month: 'short', day: 'numeric', year: 'numeric'
     })
+
+    const canManage = isAdmin()   // owner + admin
+    const [busy, setBusy] = useState(false)
+
+    const handleResetPassword = async () => {
+        const newPass = window.prompt(`Enter new password for ${user.username}:`)
+        if (!newPass) return
+        if (newPass.length < 4) {
+            window.alert('Password must be at least 4 characters.')
+            return
+        }
+        setBusy(true)
+        const res = await updateUser(user.username, { password: newPass })
+        setBusy(false)
+        if (res.success) {
+            window.alert(`Password for ${user.username} has been reset.`)
+            onChanged?.()
+        } else {
+            window.alert(res.message || 'Failed to reset password')
+        }
+    }
+
+    const handleDelete = async () => {
+        if (!window.confirm(`Delete user "${user.username}"? This cannot be undone.`)) return
+        setBusy(true)
+        const res = await deleteUser(user.username)
+        setBusy(false)
+        if (res.success) {
+            onChanged?.()
+        } else {
+            window.alert(res.message || 'Failed to delete user')
+        }
+    }
 
     return (
         <div className={`py-3 px-4 rounded-xl border border-gray-100 bg-white hover:border-[#2B8DB8]/30 hover:shadow-sm transition-all ${indent > 0 ? 'ml-8' : ''}`}>
@@ -95,12 +130,38 @@ function UserRow({
                     <p className="text-sm font-semibold text-gray-500 font-mono tracking-widest">••••••••</p>
                 </div>
             </div>
+
+            {/* Admin actions — only owner & admin see these */}
+            {canManage && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={handleResetPassword}
+                        disabled={busy}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#2B8DB8]/30 text-[#2B8DB8] hover:bg-[#EBF5FB] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                        Reset Password
+                    </button>
+                    <button
+                        onClick={handleDelete}
+                        disabled={busy}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                    </button>
+                </div>
+            )}
         </div>
     )
 }
 
 // ─── Device Node Card ─────────────────────────────────────────────────────────
-function DeviceNodeCard({ node }: { node: DeviceNode }) {
+function DeviceNodeCard({ node, onChanged }: { node: DeviceNode; onChanged?: () => void }) {
     const [expanded, setExpanded] = useState(true)
     const totalUsers = node.subAdmins.reduce((acc, sa) => acc + 1 + sa.supervisors.length, 0)
 
@@ -142,9 +203,9 @@ function DeviceNodeCard({ node }: { node: DeviceNode }) {
                     ) : (
                         node.subAdmins.map((sa) => (
                             <div key={sa.user._id}>
-                                <UserRow user={sa.user} indent={0} />
+                                <UserRow user={sa.user} indent={0} onChanged={onChanged} />
                                 {sa.supervisors.map((sv) => (
-                                    <UserRow key={sv._id} user={sv} indent={1} />
+                                    <UserRow key={sv._id} user={sv} indent={1} onChanged={onChanged} />
                                 ))}
                             </div>
                         ))
@@ -281,7 +342,7 @@ export default function UserHierarchySection() {
             ) : (
                 <div className="space-y-4">
                     {hierarchy.map(node => (
-                        <DeviceNodeCard key={node.deviceId} node={node} />
+                        <DeviceNodeCard key={node.deviceId} node={node} onChanged={fetchData} />
                     ))}
                 </div>
             )}
