@@ -169,10 +169,27 @@ function WiFiSettingsModal({
   const handleSave = async () => {
     if (!ssid.trim()) return
     setLoading(true)
-    await new Promise(r => setTimeout(r, 800))
-    setLoading(false)
-    setSaved(true)
-    setTimeout(() => { setSaved(false); onClose() }, 1200)
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
+      const res = await fetch(`${API_BASE}/devices/${device.deviceId}/settings/wifi`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wifi: { ssid: ssid.trim(), password } })
+      })
+      const data = await res.json()
+      if (!data.success) {
+        alert(data.message || 'Failed to update WiFi.')
+        setLoading(false)
+        return
+      }
+      setLoading(false)
+      setSaved(true)
+      setTimeout(() => { setSaved(false); onClose() }, 1200)
+    } catch (err) {
+      console.error('WiFi save failed:', err)
+      alert('Network error — could not reach server.')
+      setLoading(false)
+    }
   }
 
   return (
