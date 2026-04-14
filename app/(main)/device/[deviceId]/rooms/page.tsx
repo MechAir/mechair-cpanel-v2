@@ -497,16 +497,18 @@ export default function DeviceRoomsPage() {
     [`devices/${deviceId}/readings`, `devices/${deviceId}/state`],
     useCallback(({ topic, payload }) => {
       if (topic.endsWith('/readings')) {
-        // Live sensor data from device
+        // Live sensor data from device — pass through ALL sensor fields so
+        // applyReadingToRooms() can map them (temp, CO2, O2, c2h4 for EMS;
+        // temp, humidity, compressor, sov for MLH)
         if (payload.rooms) {
           const reading: Record<string, any> = {}
           payload.rooms.forEach((r: any) => {
-            reading[`room${r.id}`] = {
-              temp: r.temp,
-              humidity: r.humidity,
-              compressor: r.comp,
-              sov: r.sov,
-            }
+            const idNum = typeof r.id === 'string'
+              ? parseInt(r.id.replace('room-', ''), 10)
+              : r.id
+            // Strip the id, forward everything else as-is
+            const { id: _drop, ...rest } = r
+            reading[`room${idNum}`] = rest
           })
           setRooms(prev => applyReadingToRooms(prev, reading))
         }
