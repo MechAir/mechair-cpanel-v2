@@ -387,7 +387,7 @@ export default function DeviceRoomsPage() {
   const [pendingResetChanges, setPendingResetChanges] = useState<Record<string, Partial<RoomData>>>({})
 
   const user = getUser()
-  const canEditWifi = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'sub-admin'
+  const canEditWifi = user?.role === 'owner' || user?.role === 'admin'
   const canEditRooms = user?.role === 'supervisor' ? false : (user?.role === 'sub-admin' ? !!user?.canEditRoom : true)
 
   // Detect device type
@@ -407,9 +407,12 @@ export default function DeviceRoomsPage() {
     if (!showWifi) return
     const fetchWifi = async () => {
       try {
-        const res = await fetch(`${API_BASE}/devices/${deviceId}/wifi`)
+        const res = await fetch(`${API_BASE}/devices/${deviceId}/settings/wifi`)
         const data = await res.json()
-        if (data.success) { setSsid(data.data.ssid || ''); setWifiPassword(data.data.password || '') }
+        if (data.success && data.data?.wifi) {
+          setSsid(data.data.wifi.ssid || '')
+          setWifiPassword(data.data.wifi.password || '')
+        }
       } catch {}
     }
     fetchWifi()
