@@ -179,12 +179,12 @@ function EmsRoomCard({ room, isManual, hasPendingSov, hasPendingExh, hasPendingC
       {isManual && (
         <div className="flex gap-2">
           <button onClick={onToggleSov}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${(hasPendingSov ? !room.sovOn : room.sovOn) ? 'bg-green-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
-            SOV {(hasPendingSov ? !room.sovOn : room.sovOn) ? 'ON' : 'OFF'}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${room.sovOn ? 'bg-green-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
+            SOV {room.sovOn ? 'ON' : 'OFF'}
           </button>
           <button onClick={onToggleExh}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${(hasPendingExh ? !room.exhOn : room.exhOn) ? 'bg-orange-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
-            Exhaust {(hasPendingExh ? !room.exhOn : room.exhOn) ? 'ON' : 'OFF'}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${room.exhOn ? 'bg-orange-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
+            Exhaust {room.exhOn ? 'ON' : 'OFF'}
           </button>
         </div>
       )}
@@ -231,12 +231,12 @@ function MlhRoomCard({ room, isManual, hasPendingComp, hasPendingSov, hasPending
       {isManual && (
         <div className="flex gap-2">
           <button onClick={onToggleComp}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${(hasPendingComp ? !room.compOn : room.compOn) ? 'bg-blue-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
-            Comp {(hasPendingComp ? !room.compOn : room.compOn) ? 'ON' : 'OFF'}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${room.compOn ? 'bg-blue-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
+            Comp {room.compOn ? 'ON' : 'OFF'}
           </button>
           <button onClick={onToggleSov}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${(hasPendingSov ? !room.sovOn : room.sovOn) ? 'bg-cyan-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
-            Cool SOV {(hasPendingSov ? !room.sovOn : room.sovOn) ? 'ON' : 'OFF'}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors ${room.sovOn ? 'bg-cyan-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
+            Cool SOV {room.sovOn ? 'ON' : 'OFF'}
           </button>
         </div>
       )}
@@ -562,12 +562,13 @@ export default function DeviceRoomsPage() {
   )
 
   // Server update
+  // Server update — always includes current mode so backend never has to guess
   const updateRoomsOnServer = async (updatedRooms: RoomData[]) => {
     try {
       await fetch(`${API_BASE}/devices/${deviceId}/state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rooms: updatedRooms })
+        body: JSON.stringify({ mode: isAuto ? 'auto' : 'manual', rooms: updatedRooms })
       })
     } catch {
       pushToast({ type: 'error', title: 'Sync Failed', message: 'Could not save changes.' })
