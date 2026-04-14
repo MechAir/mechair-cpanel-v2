@@ -17,12 +17,13 @@ export default function PinSettingsModal({
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
 
+    // Firmware uses snake_case keys — must match exactly so MQTT_PINS JSON parses
     const [pins, setPins] = useState({
-        settingsPin: '',
-        datetimePin: '',
-        networkPin: '',
-        resetPin: '',
-        manualDosePin: ''
+        settings_pin: '',
+        datetime_pin: '',
+        network_pin: '',
+        reset_pin: '',
+        manual_dose_pin: ''
     })
 
     // Prefill via GET
@@ -31,15 +32,15 @@ export default function PinSettingsModal({
             try {
                 const res = await fetch(`${API_BASE}/devices/${deviceId}/settings/pins`)
                 const data = await res.json()
-                if (data.success && data.data) {
-                    setPins({
-                        settingsPin: data.data.settingsPin || '',
-                        datetimePin: data.data.datetimePin || '',
-                        networkPin: data.data.networkPin || '',
-                        resetPin: data.data.resetPin || '',
-                        manualDosePin: data.data.manualDosePin || ''
-                    })
-                }
+                // Lambda returns { success, data: { pins: {...} } }
+                const p = data?.data?.pins ?? {}
+                setPins({
+                    settings_pin: p.settings_pin || '',
+                    datetime_pin: p.datetime_pin || '',
+                    network_pin: p.network_pin || '',
+                    reset_pin: p.reset_pin || '',
+                    manual_dose_pin: p.manual_dose_pin || ''
+                })
             } catch (err) {
                 console.error('Failed to fetch PINs:', err)
             } finally {
@@ -57,7 +58,8 @@ export default function PinSettingsModal({
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(pins)
+                // Lambda expects { pins: {...} }
+                body: JSON.stringify({ pins })
             })
             const data = await res.json()
             if (data.success) {
@@ -111,27 +113,27 @@ export default function PinSettingsModal({
                         <>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Settings PIN</label>
-                                <input type="text" value={pins.settingsPin} onChange={handleChange('settingsPin')} placeholder="1234" maxLength={6}
+                                <input type="text" value={pins.settings_pin} onChange={handleChange('settings_pin')} placeholder="1234" maxLength={4}
                                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2B8DB8] focus:border-transparent" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Date & Time PIN</label>
-                                <input type="text" value={pins.datetimePin} onChange={handleChange('datetimePin')} placeholder="7890" maxLength={6}
+                                <input type="text" value={pins.datetime_pin} onChange={handleChange('datetime_pin')} placeholder="7890" maxLength={4}
                                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2B8DB8] focus:border-transparent" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Network Settings PIN</label>
-                                <input type="text" value={pins.networkPin} onChange={handleChange('networkPin')} placeholder="5678" maxLength={6}
+                                <input type="text" value={pins.network_pin} onChange={handleChange('network_pin')} placeholder="5678" maxLength={4}
                                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2B8DB8] focus:border-transparent" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Reset Settings PIN</label>
-                                <input type="text" value={pins.resetPin} onChange={handleChange('resetPin')} placeholder="1111" maxLength={6}
+                                <input type="text" value={pins.reset_pin} onChange={handleChange('reset_pin')} placeholder="1111" maxLength={4}
                                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2B8DB8] focus:border-transparent" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Manual Dose PIN</label>
-                                <input type="text" value={pins.manualDosePin} onChange={handleChange('manualDosePin')} placeholder="2222" maxLength={6}
+                                <input type="text" value={pins.manual_dose_pin} onChange={handleChange('manual_dose_pin')} placeholder="2222" maxLength={4}
                                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2B8DB8] focus:border-transparent" />
                             </div>
                         </>
