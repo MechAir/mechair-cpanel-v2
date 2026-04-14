@@ -169,8 +169,7 @@ function EmsRoomCard({ room, isManual, hasPendingSov, hasPendingExh, hasPendingC
       </div>
       <div className="grid grid-cols-2 gap-2 mb-4">
         <div className="bg-white/10 rounded-lg p-2.5"><p className="text-white/60 text-xs">Temp</p><p className="text-white font-semibold text-sm">{room.temp?.toFixed(1) ?? '--'}°C</p></div>
-        <div className="bg-white/10 rounded-lg p-2.5"><p className="text-white/60 text-xs">CO₂</p><p className="text-white font-semibold text-sm">{room.co2?.toFixed(1) ?? '--'}%</p></div>
-        <div className="bg-white/10 rounded-lg p-2.5"><p className="text-white/60 text-xs">O₂ / Humid</p><p className="text-white font-semibold text-sm">{room.humid?.toFixed(1) ?? '--'}%</p></div>
+        <div className="bg-white/10 rounded-lg p-2.5"><p className="text-white/60 text-xs">CO₂</p><p className="text-white font-semibold text-sm">{room.co2 !== undefined ? `${Math.round(room.co2)} ppm` : '--'}</p></div>        <div className="bg-white/10 rounded-lg p-2.5"><p className="text-white/60 text-xs">O₂ / Humid</p><p className="text-white font-semibold text-sm">{room.humid?.toFixed(1) ?? '--'}%</p></div>
         <div className="bg-white/10 rounded-lg p-2.5"><p className="text-white/60 text-xs">C₂H₄</p><p className="text-white font-semibold text-sm">{room.c2h4?.toFixed(2) ?? '--'} ppm</p></div>
       </div>
 
