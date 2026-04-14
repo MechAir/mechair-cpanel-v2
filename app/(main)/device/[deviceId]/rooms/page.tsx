@@ -709,9 +709,19 @@ export default function DeviceRoomsPage() {
               <button onClick={async () => {
                 if (!ssid.trim()) return; setWifiLoading(true)
                 try {
-                  const res = await fetch(`${API_BASE}/devices/${deviceId}/wifi`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ssid, password: wifiPassword }) })
+                  const res = await fetch(`${API_BASE}/devices/${deviceId}/settings/wifi`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wifi: { ssid: ssid.trim(), password: wifiPassword } })
+                  })
                   const data = await res.json()
-                  if (data.success) { setWifiSaved(true); setTimeout(() => { setWifiSaved(false); setShowWifi(false) }, 1200); pushToast({ type: 'success', title: 'WiFi Saved', message: `Credentials saved.` }) }
+                  if (data.success) {
+                    setWifiSaved(true)
+                    setTimeout(() => { setWifiSaved(false); setShowWifi(false) }, 1200)
+                    pushToast({ type: 'success', title: 'WiFi Saved', message: 'Credentials pushed to device.' })
+                  } else {
+                    pushToast({ type: 'error', title: 'Save Failed', message: data.message || 'Unknown error' })
+                  }
                 } catch { pushToast({ type: 'error', title: 'Network Error', message: 'Failed to reach server.' }) } finally { setWifiLoading(false) }
               }} disabled={wifiLoading || !ssid.trim()} className="flex-1 px-4 py-2.5 bg-[#2B8DB8] text-white rounded-xl text-sm font-medium hover:bg-[#2478a0] disabled:opacity-50 flex items-center justify-center gap-2">
                 {wifiSaved ? 'Saved ✓' : wifiLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Save'}
