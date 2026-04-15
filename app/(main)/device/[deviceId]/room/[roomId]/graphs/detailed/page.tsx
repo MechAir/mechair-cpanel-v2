@@ -1325,16 +1325,16 @@ export default function DetailedGraphsPage() {
     useCallback(({ topic, payload }) => {
       // Track relay states from /state messages for live trigger bands
       if (topic.endsWith('/state')) {
-        const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
-        const roomIndex = parseInt(roomId, 10)
-        const room = roomsArr.find((r: any) => {
+        const stateRooms: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
+        const stateRoomIdx = parseInt(roomId, 10)
+        const stateRoom = stateRooms.find((r: any) => {
           const rid = typeof r?.id === 'string' ? parseInt(r.id.replace('room-', ''), 10) : Number(r?.id)
-          return rid === roomIndex
+          return rid === stateRoomIdx
         })
-        if (room) {
+        if (stateRoom) {
           relayStateRef.current = {
-            sovOn: !!(room.sov ?? room.sovOn ?? false),
-            exhOn: !!(room.exh ?? room.exhOn ?? false),
+            sovOn: !!(stateRoom.sov ?? stateRoom.sovOn ?? false),
+            exhOn: !!(stateRoom.exh ?? stateRoom.exhOn ?? false),
           }
         }
         return
