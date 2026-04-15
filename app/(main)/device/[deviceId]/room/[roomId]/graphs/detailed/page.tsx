@@ -265,9 +265,32 @@ function SegmentedLine({
   const linePts = data.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' L')
   const areaD = `M${linePts} L${xOf(data.length - 1)},${H} L0,${H} Z`
 
+  // Build trigger bands — contiguous runs of triggers[i] === true
+  const bands: { start: number; end: number }[] = []
+  let bandStart = -1
+  for (let i = 0; i < triggers.length; i++) {
+    if (triggers[i] && bandStart < 0) bandStart = i
+    if (!triggers[i] && bandStart >= 0) { bands.push({ start: bandStart, end: i - 1 }); bandStart = -1 }
+  }
+  if (bandStart >= 0) bands.push({ start: bandStart, end: triggers.length - 1 })
+
   return (
     <>
       <path d={areaD} fill={baseColor} opacity={0.07} />
+
+      {/* Trigger bands — shaded vertical zones when relay is active */}
+      {bands.map((b, i) => (
+        <rect key={`band-${i}`}
+          x={xOf(b.start) - (b.start === 0 ? 0 : (xOf(b.start) - xOf(b.start - 1)) / 2)}
+          y={0}
+          width={Math.max(4, (xOf(b.end) + (b.end < data.length - 1 ? (xOf(b.end + 1) - xOf(b.end)) / 2 : 0))
+            - (xOf(b.start) - (b.start === 0 ? 0 : (xOf(b.start) - xOf(b.start - 1)) / 2)))}
+          height={H}
+          fill={triggerColor}
+          opacity={0.12}
+          rx={2}
+        />
+      ))}
 
       {data.slice(0, -1).map((_, i) => (
         <line
