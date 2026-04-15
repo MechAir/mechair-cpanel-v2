@@ -245,7 +245,7 @@ function NoData({ color }: { color: string }) {
 const DOT_PAD = 6
 function SegmentedLine({
   data, triggers, lo, hi, W, H, baseColor, triggerColor,
-  hoverIdx, onHoverChange,
+  hoverIdx, onHoverChange, timestamps, relayIntervals,
 }: {
   data: number[]
   triggers: boolean[]
@@ -255,6 +255,8 @@ function SegmentedLine({
   triggerColor: string
   hoverIdx: number | null
   onHoverChange: (i: number | null) => void
+  timestamps?: number[]             // ms epoch per data point
+  relayIntervals?: RelayInterval[]  // exact ON/OFF event intervals
 }) {
   if (data.length < 2 || W === 0 || H === 0) return null
 
@@ -262,35 +264,44 @@ function SegmentedLine({
   const xOf = (i: number) => Math.max(DOT_PAD, Math.min(W - DOT_PAD, (i / (data.length - 1)) * W))
   const yOf = (v: number) => Math.max(DOT_PAD, Math.min(H - DOT_PAD, H - ((v - lo) / (hi - lo)) * H))
 
+  // Time-based x mapping for event intervals
+  const tStart = timestamps && timestamps.length >= 2 ? timestamps[0] : 0
+  const tEnd = timestamps && timestamps.length >= 2 ? timestamps[timestamps.length - 1] : 1
+  const tSpan = tEnd - tStart || 1
+  const xOfTime = (t: number) => Math.max(DOT_PAD, Math.min(W - DOT_PAD, ((t - tStart) / tSpan) * W))
+
   const linePts = data.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' L')
   const areaD = `M${linePts} L${xOf(data.length - 1)},${H} L0,${H} Z`
 
-  // Build trigger bands — contiguous runs of triggers[i] === true
-  const bands: { start: number; end: number }[] = []
-  let bandStart = -1
-  for (let i = 0; i < triggers.length; i++) {
-    if (triggers[i] && bandStart < 0) bandStart = i
-    if (!triggers[i] && bandStart >= 0) { bands.push({ start: bandStart, end: i - 1 }); bandStart = -1 }
-  }
-  if (bandStart >= 0) bands.push({ start: bandStart, end: triggers.length - 1 })
+  // Use time-accurate relay intervals if available, otherwise fall back to boolean bands
+  const hasIntervals = relayIntervals && relayIntervals.length > 0 && timestamps && timestamps.length >= 2
 
   return (
     <>
       <path d={areaD} fill={baseColor} opacity={0.07} />
 
-      {/* Trigger bands — shaded vertical zones when relay is active */}
-      {bands.map((b, i) => (
-        <rect key={`band-${i}`}
-          x={xOf(b.start) - (b.start === 0 ? 0 : (xOf(b.start) - xOf(b.start - 1)) / 2)}
-          y={0}
-          width={Math.max(4, (xOf(b.end) + (b.end < data.length - 1 ? (xOf(b.end + 1) - xOf(b.end)) / 2 : 0))
-            - (xOf(b.start) - (b.start === 0 ? 0 : (xOf(b.start) - xOf(b.start - 1)) / 2)))}
-          height={H}
-          fill={triggerColor}
-          opacity={0.12}
-          rx={2}
-        />
-      ))}
+      {/* Trigger bands — time-accurate shaded zones from relay events */}
+      {hasIntervals ? relayIntervals!.map((iv, i) => {
+        const x1 = xOfTime(Math.max(iv.start, tStart))
+        const x2 = xOfTime(Math.min(iv.end, tEnd))
+        if (x2 <= x1) return null
+        return <rect key={`band-${i}`} x={x1} y={0} width={x2 - x1} height={H}
+          fill={triggerColor} opacity={0.13} rx={2} />
+      }) : null}
+
+      {/* Event dots — small dots at exact ON and OFF positions */}
+      {hasIntervals ? relayIntervals!.map((iv, i) => (
+        <g key={`ev-${i}`}>
+          {iv.start >= tStart && iv.start <= tEnd && (
+            <circle cx={xOfTime(iv.start)} cy={H - 8} r={4}
+              fill={triggerColor} stroke="white" strokeWidth={1.5} />
+          )}
+          {iv.end >= tStart && iv.end <= tEnd && (
+            <circle cx={xOfTime(iv.end)} cy={H - 8} r={4}
+              fill="white" stroke={triggerColor} strokeWidth={1.5} />
+          )}
+        </g>
+      )) : null}
 
       {data.slice(0, -1).map((_, i) => (
         <line
@@ -336,7 +347,7 @@ function SegmentedLine({
 }
 
 function GraphExpandModal({
-  metricKey, data, triggers, labels, latestValue, onClose,
+  metricKey, data, triggers, labels, latestValue, onClose, timestamps, relayIntervals,
 }: {
   metricKey: MetricKey
   data: number[]
@@ -344,6 +355,8 @@ function GraphExpandModal({
   labels: string[]
   latestValue?: number
   onClose: () => void
+  timestamps?: number[]
+  relayIntervals?: RelayInterval[]
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const { w: W, h: H } = useSize(wrapRef)
@@ -490,7 +503,8 @@ function GraphExpandModal({
                   ))}
                   <line x1={0} y1={H} x2={W} y2={H} stroke="#E2E8F0" strokeWidth={1.5} />
                   <SegmentedLine data={data} triggers={triggers} lo={lo} hi={hi} W={W} H={H}
-                    baseColor={color} triggerColor={triggerColor} hoverIdx={hoverIdx} onHoverChange={setHoverIdx} />
+                    baseColor={color} triggerColor={triggerColor} hoverIdx={hoverIdx} onHoverChange={setHoverIdx}
+                    timestamps={timestamps} relayIntervals={relayIntervals} />
                 </svg>
               ) : null}
 
@@ -527,7 +541,7 @@ function GraphExpandModal({
 }
 
 // ── MetricGraph ───────────────────────────────────────────────────────────────
-function MetricGraph({ metricKey, data, triggers, labels, latestValue, tall, isLoading, onExpand }: {
+function MetricGraph({ metricKey, data, triggers, labels, latestValue, tall, isLoading, onExpand, timestamps, relayIntervals }: {
   metricKey: MetricKey
   data: number[]
   triggers: boolean[]
@@ -536,6 +550,8 @@ function MetricGraph({ metricKey, data, triggers, labels, latestValue, tall, isL
   tall?: boolean
   isLoading?: boolean
   onExpand?: () => void
+  timestamps?: number[]
+  relayIntervals?: RelayInterval[]
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const { w: W, h: H } = useSize(wrapRef)
@@ -631,6 +647,8 @@ function MetricGraph({ metricKey, data, triggers, labels, latestValue, tall, isL
                   triggerColor={triggerColor}
                   hoverIdx={hoverIdx}
                   onHoverChange={setHoverIdx}
+                  timestamps={timestamps}
+                  relayIntervals={relayIntervals}
                 />
               </svg>
             ) : null}
@@ -1140,14 +1158,16 @@ function buildRangeUrl(deviceId: string, range: TimeRange): string {
 // Build trigger boolean arrays from relay events (Events table) + reading timestamps.
 // Events have notes like "[device] Room 1 Exhaust ON" / "[device] Room 1 SOV OFF".
 // Returns a boolean[] aligned to `timestamps` where true = relay was ON at that moment.
-function buildTriggerArrayFromEvents(
+// Parse relay events into ON/OFF time intervals (ms epoch)
+interface RelayInterval { start: number; end: number }
+
+function buildRelayIntervals(
   events: { timestamp: string; note?: string }[],
-  timestamps: string[],
   relayKeyword: string,   // "Exhaust" or "SOV"
-  roomName: string        // "Room 1"
-): boolean[] {
-  // Parse events into ON/OFF intervals
-  const intervals: { start: number; end: number }[] = []
+  roomName: string,       // "Room 1"
+  windowEnd?: number      // close any open interval at this time
+): RelayInterval[] {
+  const intervals: RelayInterval[] = []
   let onTime: number | null = null
   for (const e of events) {
     const note = e.note ?? ''
@@ -1159,15 +1179,16 @@ function buildTriggerArrayFromEvents(
       if (onTime !== null) { intervals.push({ start: onTime, end: t }); onTime = null }
     }
   }
-  // If relay is still ON at the end of the window, close the interval at the last timestamp
-  if (onTime !== null && timestamps.length > 0) {
-    intervals.push({ start: onTime, end: new Date(timestamps[timestamps.length - 1]).getTime() + 1 })
-  }
-  // For each reading timestamp, check if it falls inside any ON interval
-  return timestamps.map(ts => {
-    const t = new Date(ts).getTime()
-    return intervals.some(iv => t >= iv.start && t <= iv.end)
-  })
+  if (onTime !== null) intervals.push({ start: onTime, end: windowEnd ?? Date.now() })
+  return intervals
+}
+
+// For each reading timestamp, check if it falls inside any relay ON interval
+function buildTriggerArrayFromIntervals(
+  intervals: RelayInterval[],
+  timestamps: number[]     // ms epoch per reading
+): boolean[] {
+  return timestamps.map(t => intervals.some(iv => t >= iv.start && t <= iv.end))
 }
 
 // Build the events API URL for the same time window as readings
@@ -1191,6 +1212,9 @@ interface AllData {
   temp: number[]; co2: number[]; o2: number[]; c2h4: number[]
   triggersCO2: boolean[]
   triggersC2H4: boolean[]
+  timestamps: number[]            // ms epoch per reading point
+  intervalsCO2: RelayInterval[]   // Exhaust ON/OFF intervals (exact event times)
+  intervalsC2H4: RelayInterval[]  // SOV ON/OFF intervals (exact event times)
   labels: string[]
   loading: boolean
   latestTemp?: number; latestCO2?: number; latestO2?: number; latestC2H4?: number
@@ -1208,12 +1232,14 @@ export default function DetailedGraphsPage() {
   const [allData, setAllData] = useState<AllData>({
     temp: [], co2: [], o2: [], c2h4: [],
     triggersCO2: [], triggersC2H4: [],
+    timestamps: [], intervalsCO2: [], intervalsC2H4: [],
     labels: [], loading: false,
   })
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'ok' | 'error'>('connecting')
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
-  
+  const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
+
   // Track live relay states from /state topic so trigger bands appear on graphs
   const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
 
@@ -1229,7 +1255,7 @@ export default function DetailedGraphsPage() {
   // so the graph isn't empty — then the WebSocket takes over and streams new data.
   useEffect(() => {
     if (timeRange.mode !== 'live') return
-    setAllData({ temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], labels: [], loading: true })
+    setAllData({ temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], timestamps: [], intervalsCO2: [], intervalsC2H4: [], labels: [], loading: true })
     setLiveStatus('connecting')
 
     // Seed with last 15 readings + relay events for trigger bands
@@ -1270,6 +1296,9 @@ export default function DetailedGraphsPage() {
         const lastSovOn = [...relayEvents].reverse().find(e => (e.note ?? '').includes(roomName) && (e.note ?? '').includes('SOV'))
         if (lastExhOn) relayStateRef.current.exhOn = (lastExhOn.note ?? '').includes('ON') && !(lastExhOn.note ?? '').includes('OFF')
         if (lastSovOn) relayStateRef.current.sovOn = (lastSovOn.note ?? '').includes('ON') && !(lastSovOn.note ?? '').includes('OFF')
+        const exhIntervals = buildRelayIntervals(relayEvents, 'Exhaust', roomName)
+        const sovIntervals = buildRelayIntervals(relayEvents, 'SOV', roomName)
+        const tsMs = readings.map(r => new Date(r.timestamp).getTime())
         setAllData({
           loading: false,
           labels: readings.map(r => formatLiveLabel(r.timestamp)),
@@ -1277,8 +1306,11 @@ export default function DetailedGraphsPage() {
           co2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
           o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
           c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
-          triggersCO2: buildTriggerArrayFromEvents(relayEvents, timestamps, 'Exhaust', roomName),
-          triggersC2H4: buildTriggerArrayFromEvents(relayEvents, timestamps, 'SOV', roomName),
+          triggersCO2: buildTriggerArrayFromIntervals(exhIntervals, tsMs),
+          triggersC2H4: buildTriggerArrayFromIntervals(sovIntervals, tsMs),
+          timestamps: tsMs,
+          intervalsCO2: exhIntervals,
+          intervalsC2H4: sovIntervals,
         })
         setLiveStatus('ok')
       } catch {
@@ -1340,6 +1372,7 @@ export default function DetailedGraphsPage() {
         [`${prefix}_triggerc2h4`]: trigC2H4 as unknown as number,
       } as Partial<ApiReading>)
 
+      const nowMs = Date.now()
       setAllData(prev => {
         if (prev.loading) return prev
         const slice = <T,>(arr: T[]) => [...arr.slice(-(LIVE_POINTS_COUNT - 1))]
@@ -1351,6 +1384,7 @@ export default function DetailedGraphsPage() {
           c2h4: [...slice(prev.c2h4), c2h4],
           triggersCO2: [...slice(prev.triggersCO2), trigCO2],
           triggersC2H4: [...slice(prev.triggersC2H4), trigC2H4],
+          timestamps: [...slice(prev.timestamps), nowMs],
           labels: [...slice(prev.labels), label],
           latestTemp: temp, latestCO2: co2, latestO2: o2, latestC2H4: c2h4,
         }
@@ -1360,7 +1394,7 @@ export default function DetailedGraphsPage() {
 
   // ── Range mode (non-live) ─────────────────────────────────────────────────
   const fetchRange = useCallback(async (range: TimeRange) => {
-    setAllData(prev => ({ ...prev, loading: true, temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], labels: [] }))
+    setAllData(prev => ({ ...prev, loading: true, temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], timestamps: [], intervalsCO2: [], intervalsC2H4: [], labels: [] }))
     try {
       const [readingsRes, eventsRes] = await Promise.all([
         fetch(buildRangeUrl(deviceId, range)),
@@ -1386,14 +1420,21 @@ export default function DetailedGraphsPage() {
         if (evJson.success) relayEvents = evJson.data.events ?? []
       } catch { /* ignore events fetch failure — triggers just won't show */ }
 
+      const exhIntervals = buildRelayIntervals(relayEvents, 'Exhaust', roomName)
+      const sovIntervals = buildRelayIntervals(relayEvents, 'SOV', roomName)
+      const tsMs = readings.map(r => new Date(r.timestamp).getTime())
+
       setAllData({
         loading: false, labels,
         temp: readings.map(r => extractMetric(r, roomKey, 'temp')),
         co2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
         o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
         c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
-        triggersCO2: buildTriggerArrayFromEvents(relayEvents, timestamps, 'Exhaust', roomName),
-        triggersC2H4: buildTriggerArrayFromEvents(relayEvents, timestamps, 'SOV', roomName),
+        triggersCO2: buildTriggerArrayFromIntervals(exhIntervals, tsMs),
+        triggersC2H4: buildTriggerArrayFromIntervals(sovIntervals, tsMs),
+        timestamps: tsMs,
+        intervalsCO2: exhIntervals,
+        intervalsC2H4: sovIntervals,
         latestTemp: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'temp') : undefined,
         latestCO2: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'CO2') : undefined,
         latestO2: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'O2') : undefined,
@@ -1524,11 +1565,13 @@ export default function DetailedGraphsPage() {
         const topCards = []
         if (showC2H4) topCards.push(
           <MetricGraph key="C2H4" metricKey="C2H4" data={allData.c2h4} triggers={allData.triggersC2H4} labels={allData.labels}
+            timestamps={allData.timestamps} relayIntervals={allData.intervalsC2H4}
             latestValue={timeRange.mode === 'live' ? (latest[`${prefix}_C2H4`] ?? latest[`${prefix}_c2h4`]) : allData.latestC2H4}
             isLoading={allData.loading} onExpand={() => setExpandedMetric('C2H4')} />
         )
         if (showCO2) topCards.push(
           <MetricGraph key="CO2" metricKey="CO2" data={allData.co2} triggers={allData.triggersCO2} labels={allData.labels}
+            timestamps={allData.timestamps} relayIntervals={allData.intervalsCO2}
             latestValue={timeRange.mode === 'live' ? latest[`${prefix}_CO2`] : allData.latestCO2}
             isLoading={allData.loading} onExpand={() => setExpandedMetric('CO2')} />
         )
@@ -1562,6 +1605,8 @@ export default function DetailedGraphsPage() {
           metricKey={expandedMetric as MetricKey}
           data={metricDataMap[expandedMetric as MetricKey].data}
           triggers={metricDataMap[expandedMetric as MetricKey].triggers}
+          timestamps={allData.timestamps}
+          relayIntervals={expandedMetric === 'CO2' ? allData.intervalsCO2 : expandedMetric === 'C2H4' ? allData.intervalsC2H4 : []}
           labels={allData.labels}
           latestValue={metricDataMap[expandedMetric as MetricKey].latestValue}
           onClose={() => setExpandedMetric(null)}
