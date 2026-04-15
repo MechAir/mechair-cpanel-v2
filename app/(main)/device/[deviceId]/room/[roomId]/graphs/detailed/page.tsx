@@ -7,7 +7,7 @@ import { getDeviceType } from '@/utils/deviceTypes'
 import { useIoT } from '@/utils/useIoT'
 
 const POLL_INTERVAL_MS = 10000
-const LIVE_POINTS_COUNT = 15
+const LIVE_WINDOW_MS = 15 * 60 * 1000  // 15-minute rolling window for live mode
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
 
 const ROOM_PREFIX: Record<string, string> = Object.fromEntries(
@@ -289,19 +289,30 @@ function SegmentedLine({
           fill={triggerColor} opacity={0.13} rx={2} />
       }) : null}
 
-      {/* Event dots — small dots at exact ON and OFF positions */}
-      {hasIntervals ? relayIntervals!.map((iv, i) => (
-        <g key={`ev-${i}`}>
-          {iv.start >= tStart && iv.start <= tEnd && (
-            <circle cx={xOfTime(iv.start)} cy={H - 8} r={4}
-              fill={triggerColor} stroke="white" strokeWidth={1.5} />
-          )}
-          {iv.end >= tStart && iv.end <= tEnd && (
-            <circle cx={xOfTime(iv.end)} cy={H - 8} r={4}
-              fill="white" stroke={triggerColor} strokeWidth={1.5} />
-          )}
-        </g>
-      )) : null}
+      {/* Event dots — small dots at exact ON and OFF positions with hover tooltips */}
+      {hasIntervals ? relayIntervals!.map((iv, i) => {
+        const onTime = new Date(iv.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        const offTime = new Date(iv.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        const durSec = Math.round((iv.end - iv.start) / 1000)
+        return (
+          <g key={`ev-${i}`}>
+            {iv.start >= tStart && iv.start <= tEnd && (
+              <circle cx={xOfTime(iv.start)} cy={H - 8} r={5}
+                fill={triggerColor} stroke="white" strokeWidth={1.5}
+                style={{ cursor: 'pointer' }}>
+                <title>ON at {onTime} ({durSec}s)</title>
+              </circle>
+            )}
+            {iv.end >= tStart && iv.end <= tEnd && (
+              <circle cx={xOfTime(iv.end)} cy={H - 8} r={5}
+                fill="white" stroke={triggerColor} strokeWidth={1.5}
+                style={{ cursor: 'pointer' }}>
+                <title>OFF at {offTime} ({durSec}s)</title>
+              </circle>
+            )}
+          </g>
+        )
+      }) : null}
 
       {data.slice(0, -1).map((_, i) => (
         <line
@@ -1261,11 +1272,8 @@ export default function DetailedGraphsPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const params = new URLSearchParams({ maxPoints: String(LIVE_POINTS_COUNT) })
         const now = new Date()
-        params.set('mode', 'custom')
-        params.set('from', new Date(now.getTime() - 60 * 60 * 1000).toISOString()) // last 1h window
-        params.set('to', now.toISOString())
+        const params = new URLSearchParams({ mode: 'custom', from: new Date(now.getTime() - LIVE_WINDOW_MS).toISOString(), to: now.toISOString() })
         const [readingsRes, eventsRes] = await Promise.all([
           fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params.toString()}`),
           fetch(buildEventsUrl(deviceId, { mode: 'last_hour' }))
@@ -1276,7 +1284,7 @@ export default function DetailedGraphsPage() {
         const allReadings: RangeReading[] = (json.data.readings ?? []).slice().sort(
           (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         )
-        const readings = allReadings.slice(-LIVE_POINTS_COUNT)
+        const readings = allReadings
         const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
         const roomName = `Room ${roomId}`
         const timestamps = readings.map(r => new Date(r.timestamp).getTime())
@@ -1372,19 +1380,21 @@ export default function DetailedGraphsPage() {
       } as Partial<ApiReading>)
 
       const nowMs = Date.now()
+      const cutoff = nowMs - LIVE_WINDOW_MS
       setAllData(prev => {
         if (prev.loading) return prev
-        const slice = <T,>(arr: T[]) => [...arr.slice(-(LIVE_POINTS_COUNT - 1))]
+        const newTs = [...prev.timestamps, nowMs]
+        const s = Math.max(0, newTs.findIndex(t => t >= cutoff))
         return {
           ...prev,
-          temp: [...slice(prev.temp), temp],
-          co2: [...slice(prev.co2), co2],
-          o2: [...slice(prev.o2), o2],
-          c2h4: [...slice(prev.c2h4), c2h4],
-          triggersCO2: [...slice(prev.triggersCO2), trigCO2],
-          triggersC2H4: [...slice(prev.triggersC2H4), trigC2H4],
-          timestamps: [...slice(prev.timestamps), nowMs],
-          labels: [...slice(prev.labels), label],
+          temp: [...prev.temp, temp].slice(s),
+          co2: [...prev.co2, co2].slice(s),
+          o2: [...prev.o2, o2].slice(s),
+          c2h4: [...prev.c2h4, c2h4].slice(s),
+          triggersCO2: [...prev.triggersCO2, trigCO2].slice(s),
+          triggersC2H4: [...prev.triggersC2H4, trigC2H4].slice(s),
+          timestamps: newTs.slice(s),
+          labels: [...prev.labels, label].slice(s),
           latestTemp: temp, latestCO2: co2, latestO2: o2, latestC2H4: c2h4,
         }
       })
@@ -1507,7 +1517,7 @@ export default function DetailedGraphsPage() {
           <p className="text-gray-500 text-sm mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
             <span>
               {timeRange.mode === 'live'
-                ? `Live · ${LIVE_POINTS_COUNT} points`
+               ? `Live · ${allData.temp.length} points`
                 : `Showing: ${RANGE_OPTIONS.find(r => r.key === timeRange.mode)?.label ?? 'Custom'}`}
             </span>
             <span className="flex items-center gap-2 text-xs">
