@@ -267,22 +267,72 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
     const fetchData = useCallback(async () => {
         setLoading(true); setError(''); setPreviewData(null)
         try {
+            // Fetch ALL readings (maxPoints=0) so PDF summary is accurate
             const params = buildApiParams(selectedRange, customFrom, customTo)
             if (!params) { setError('Please select both From and To dates.'); setLoading(false); return }
+            params.set('maxPoints', '0')
 
-            const res = await fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params}`)
+            // Also fetch relay events for trigger counts
+            const evParams = new URLSearchParams(params)
+            evParams.delete('maxPoints')
+            evParams.set('eventType', 'relay_change')
+            const evUrl = `${API_BASE}/devices/${deviceId}/events/range?${evParams.toString()}`
+
+            const [res, evRes] = await Promise.all([
+                fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params}`),
+                fetch(evUrl).catch(() => null)
+            ])
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}))
                 throw new Error(body.message ?? `HTTP ${res.status}`)
             }
             const json = await res.json()
             if (!json.success) throw new Error(json.message ?? 'API returned failure')
-
-            // Sort ascending so report rows go oldest → newest
             const readings: RangeReading[] = (json.data.readings ?? []).slice().sort(
                 (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
             )
+
+            // Parse relay events to compute trigger counts
+            let relayEvents: { timestamp: string; note?: string }[] = []
+            try {
+                if (evRes && evRes.ok) {
+                    const evJson = await evRes.json()
+                    if (evJson.success) relayEvents = evJson.data?.events ?? []
+                }
+            } catch { /* non-critical */ }
+
             const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
+            const roomName = `Room ${roomId}`
+
+            // Build ON/OFF intervals from relay events
+            const buildIntervals = (keyword: string) => {
+                const intervals: { start: number; end: number }[] = []
+                let onTime: number | null = null
+                for (const e of relayEvents) {
+                    const note = e.note ?? ''
+                    if (!note.includes(roomName) || !note.includes(keyword)) continue
+                    const t = new Date(e.timestamp).getTime()
+                    if (note.includes('ON') && !note.includes('OFF')) {
+                        if (onTime === null) onTime = t
+                    } else if (note.includes('OFF')) {
+                        if (onTime !== null) { intervals.push({ start: onTime, end: t }); onTime = null }
+                    }
+                }
+                if (onTime !== null) intervals.push({ start: onTime, end: Date.now() })
+                return intervals
+            }
+            const exhIntervals = buildIntervals('Exhaust')
+            const sovIntervals = buildIntervals('SOV')
+
+            // For each reading, check if its timestamp falls inside any relay-ON interval
+            const buildTriggers = (intervals: { start: number; end: number }[]) =>
+                readings.map(r => {
+                    const t = new Date(r.timestamp).getTime()
+                    return intervals.some(iv => t >= iv.start && t <= iv.end)
+                })
+
+            const triggersCO2 = buildTriggers(exhIntervals)
+            const triggersC2H4 = buildTriggers(sovIntervals)
 
             const formatLabel = (ts: string) => {
                 const d = new Date(ts)
@@ -290,17 +340,32 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
             }
 
+            // For chart preview, downsample to ~120 points so the canvas isn't cluttered.
+            // Summary/PDF stats use the full dataset.
+            const step = Math.max(1, Math.floor(readings.length / 120))
+            const sampled = readings.filter((_, i) => i % step === 0 || i === readings.length - 1)
+            const sampledTrigCO2 = triggersCO2.filter((_, i) => i % step === 0 || i === readings.length - 1)
+            const sampledTrigC2H4 = triggersC2H4.filter((_, i) => i % step === 0 || i === readings.length - 1)
+
             setPreviewData({
-                temp: readings.map(r => extractMetric(r, roomKey, 'temp')),
-                co2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
-                o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
-                c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
-                labels: readings.map(r => formatLabel(r.timestamp)),
-                rawTimestamps: readings.map(r => r.timestamp),
-                // Each reading has its own trigger flag inside the corresponding room object
-                triggersCO2: readings.map(r => !!(r as any)[`room${parseInt(roomKey.replace('R', ''), 10)}`]?.triggerco2),
-                triggersC2H4: readings.map(r => !!(r as any)[`room${parseInt(roomKey.replace('R', ''), 10)}`]?.triggerc2h4),
-            })
+                temp: sampled.map(r => extractMetric(r, roomKey, 'temp')),
+                co2: sampled.map(r => extractMetric(r, roomKey, 'CO2')),
+                o2: sampled.map(r => extractMetric(r, roomKey, 'O2')),
+                c2h4: sampled.map(r => extractMetric(r, roomKey, 'C2H4')),
+                labels: sampled.map(r => formatLabel(r.timestamp)),
+                rawTimestamps: sampled.map(r => r.timestamp),
+                triggersCO2: sampledTrigCO2,
+                triggersC2H4: sampledTrigC2H4,
+                // Store full counts for PDF summary (not just preview sample)
+                _fullReadingCount: readings.length,
+                _fullTriggersCO2Count: triggersCO2.filter(Boolean).length,
+                _fullTriggersC2H4Count: triggersC2H4.filter(Boolean).length,
+                // Full data for accurate summary stats
+                _fullTemp: readings.map(r => extractMetric(r, roomKey, 'temp')),
+                _fullCO2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
+                _fullO2: readings.map(r => extractMetric(r, roomKey, 'O2')),
+                _fullC2H4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
+            } as any)
         } catch (e) {
             setError(`Failed to fetch data: ${e instanceof Error ? e.message : 'Unknown error'}`)
         } finally { setLoading(false) }
@@ -343,8 +408,8 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const anyTriggerCO2 = previewData.triggersCO2.some(Boolean)
             const anyTriggerC2H4 = previewData.triggersC2H4.some(Boolean)
             const triggerCount = (anyTriggerCO2 ? 1 : 0) + (anyTriggerC2H4 ? 1 : 0)
-            const co2TriggerCount = previewData.triggersCO2.filter(Boolean).length
-            const c2h4TriggerCount = previewData.triggersC2H4.filter(Boolean).length
+            const co2TriggerCount = (previewData as any)._fullTriggersCO2Count ?? previewData.triggersCO2.filter(Boolean).length
+            const c2h4TriggerCount = (previewData as any)._fullTriggersC2H4Count ?? previewData.triggersC2H4.filter(Boolean).length
 
             const drawHeaderFooter = (pageNum: number, totalPages: number) => {
                 doc.setFillColor(43, 141, 184)
@@ -401,8 +466,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             doc.setFontSize(10)
             doc.setFont('helvetica', 'normal')
             doc.text(`Device: ${deviceId}   |   ${roomLabel}   |   Period: ${rangeLabel}`, 14, titleY + 16)
-            doc.text(`Data points: ${previewData.labels.length}   |   Generated: ${generatedAt}`, 14, titleY + 22)
-
+            doc.text(`Data points: ${(previewData as any)._fullReadingCount ?? previewData.labels.length}   |   Generated: ${generatedAt}`, 14, titleY + 22)
             doc.setDrawColor(226, 232, 240)
             doc.setLineWidth(0.5)
             doc.line(14, titleY + 26, PW - 14, titleY + 26)
@@ -436,16 +500,13 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             doc.setTextColor(30, 58, 138); doc.setFontSize(11); doc.setFont('helvetica', 'bold')
             doc.text('Statistical Summary', 14, tableY)
 
+            const pd = previewData as any
             const tableRows = METRICS.map(m => {
-                const vals = m.key === 'temp' ? previewData.temp
-                    : m.key === 'CO2' ? previewData.co2
-                        : m.key === 'O2' ? previewData.o2
-                            : previewData.c2h4
-                const triggers = m.key === 'CO2' ? previewData.triggersCO2
-                    : m.key === 'C2H4' ? previewData.triggersC2H4
-                        : vals.map(() => false)
+                const vals = m.key === 'temp' ? (pd._fullTemp ?? previewData.temp)
+                    : m.key === 'CO2' ? (pd._fullCO2 ?? previewData.co2)
+                        : m.key === 'O2' ? (pd._fullO2 ?? previewData.o2)
+                            : (pd._fullC2H4 ?? previewData.c2h4)
                 const { min, max, avg } = minMax(vals)
-                const trigCount = triggers.filter(Boolean).length
                 return [
                     m.label,
                     m.unit,
@@ -453,7 +514,6 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                     min.toFixed(m.decimals),
                     max.toFixed(m.decimals),
                     avg.toFixed(m.decimals),
-
                 ]
             })
 
@@ -511,7 +571,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 { text: `Device ID:    ${deviceId}`, bold: false },
                 { text: `Room:         ${roomLabel}`, bold: false },
                 { text: `Report Range: ${rangeLabel}`, bold: false },
-                { text: `Data Points:  ${previewData.labels.length}`, bold: false },
+                { text: `Data Points:  ${(previewData as any)._fullReadingCount ?? previewData.labels.length}`, bold: false },
                 { text: `CO2 Alert Readings:   ${co2TriggerCount}`, bold: false },
                 { text: `C2H4 Alert Readings:  ${c2h4TriggerCount}`, bold: false },
                 { text: `Generated:    ${generatedAt}`, bold: false },
@@ -882,7 +942,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
 
                 <div className="px-4 sm:px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <p className="text-xs text-gray-400">
-                        {previewData ? `${previewData.labels.length} data points ready` : 'Fetch data first to generate PDF'}
+                         {previewData ? `${(previewData as any)._fullReadingCount ?? previewData.labels.length} data points ready` : 'Fetch data first to generate PDF'}
                     </p>
                     <div className="flex gap-2 sm:gap-3 flex-wrap">
                         <button onClick={onClose} className="px-4 sm:px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
