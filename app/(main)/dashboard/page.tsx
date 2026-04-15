@@ -267,7 +267,7 @@ function DeviceCard({
   onPowerOffDevice: () => void
   onPowerOnDevice: () => void
 }) {
-  const activeRooms = device.rooms.filter(r => r.isOn).length
+  const activeRooms = (device.rooms ?? []).filter(r => r.isOn).length
   const lastSeen = new Date(device.lastSeen)
   const minutesAgo = Math.floor((Date.now() - lastSeen.getTime()) / 60000)
   const lastSeenLabel =
