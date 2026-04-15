@@ -668,6 +668,146 @@ function MlhEnabledRoomsTab({ deviceId, readOnly }: { deviceId: string; readOnly
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// EMS EMAIL & HOOTER LIMITS TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface EmailHooterLimits {
+  senderEmail: string
+  recipientEmails: string[]
+  emailCooldown: TimingField
+  c2h4High: number
+  c2h4Low: number
+  co2High: number
+  co2Low: number
+  hooterOnTime: TimingField
+  hooterCooldown: TimingField
+}
+
+const defaultEmailHooterLimits: EmailHooterLimits = {
+  senderEmail: '',
+  recipientEmails: [],
+  emailCooldown: { value: 30, unit: 'min' },
+  c2h4High: 5.0,
+  c2h4Low: 0.5,
+  co2High: 2000,
+  co2Low: 500,
+  hooterOnTime: { value: 30, unit: 'sec' },
+  hooterCooldown: { value: 5, unit: 'min' },
+}
+
+function EmsLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomType; deviceId: string; readOnly?: boolean }) {
+  const roomCount = getDeviceType(deviceId).rooms
+  const emsRooms: EmsRoomType[] = Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`)
+  const [settings, setSettings] = useState<Record<EmsRoomType, EmailHooterLimits>>(
+    Object.fromEntries(emsRooms.map(r => [r, { ...defaultEmailHooterLimits, recipientEmails: [] }])) as Record<EmsRoomType, EmailHooterLimits>
+  )
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [newEmail, setNewEmail] = useState('')
+
+  useEffect(() => {
+    apiGet<{ limits: Record<EmsRoomType, EmailHooterLimits> }>(`/devices/${deviceId}/settings/email-hooter-limits`)
+      .then(data => { if (data?.limits) setSettings(prev => ({ ...prev, ...Object.fromEntries(Object.entries(data.limits).map(([k, v]) => [k, { ...defaultEmailHooterLimits, ...v }])) })) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [deviceId])
+
+  const cur = settings[activeRoom]
+  const update = (patch: Partial<EmailHooterLimits>) => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], ...patch } }))
+
+  const addEmail = () => {
+    const trimmed = newEmail.trim().toLowerCase()
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return
+    if (cur.recipientEmails.includes(trimmed)) return
+    update({ recipientEmails: [...cur.recipientEmails, trimmed] })
+    setNewEmail('')
+  }
+  const removeEmail = (email: string) => update({ recipientEmails: cur.recipientEmails.filter(e => e !== email) })
+
+  const handleSave = async () => {
+    try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/email-hooter-limits`, { limits: settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    catch { setError('Failed to save.') } finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
+
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6">
+      {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6">
+        {/* ── Left: Email Settings ── */}
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Email Settings</p>
+
+          {/* Sender Email */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+            <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">Sender Email:</label>
+            <input type="email" value={cur.senderEmail} onChange={e => !readOnly && update({ senderEmail: e.target.value })} readOnly={readOnly} disabled={readOnly} placeholder="alerts@mechair.co.in"
+              className={`flex-1 text-sm font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
+          </div>
+
+          {/* Recipient Emails */}
+          <div className="space-y-2">
+            <label className="text-gray-700 text-sm sm:text-base font-medium">Recipient Emails:</label>
+            <div className="flex gap-2">
+              <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} readOnly={readOnly} disabled={readOnly} placeholder="user@example.com"
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addEmail())}
+                className={`flex-1 text-sm font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
+              {!readOnly && (
+                <button onClick={addEmail} className="px-4 py-2.5 bg-[#2B8DB8] text-white text-sm font-bold rounded-xl hover:bg-[#247a9e] transition-colors">+ Add</button>
+              )}
+            </div>
+            {cur.recipientEmails.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {cur.recipientEmails.map(email => (
+                  <span key={email} className="inline-flex items-center gap-1.5 bg-[#2B8DB8]/10 text-[#2B8DB8] text-sm font-semibold px-3 py-1.5 rounded-full">
+                    {email}
+                    {!readOnly && (
+                      <button onClick={() => removeEmail(email)} className="text-[#2B8DB8] hover:text-red-500 font-bold text-xs leading-none">✕</button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Email Cooldown */}
+          <TimingRow label="Email Cooldown:" field={cur.emailCooldown} readOnly={readOnly}
+            onChange={u => update({ emailCooldown: { ...cur.emailCooldown, ...u } })} />
+        </div>
+
+        {/* ── Right: Gas Limits ── */}
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">C₂H₄ Limits</p>
+          <SetpointRow label="C₂H₄ High Limit:" value={cur.c2h4High} unit="ppm" step={0.1} readOnly={readOnly} onChange={v => update({ c2h4High: parseFloat(v) || 0 })} />
+          <SetpointRow label="C₂H₄ Low Limit:" value={cur.c2h4Low} unit="ppm" step={0.1} readOnly={readOnly} onChange={v => update({ c2h4Low: parseFloat(v) || 0 })} />
+
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">CO₂ Limits</p>
+          <SetpointRow label="CO₂ High Limit:" value={cur.co2High} unit="ppm" readOnly={readOnly} onChange={v => update({ co2High: parseFloat(v) || 0 })} />
+          <SetpointRow label="CO₂ Low Limit:" value={cur.co2Low} unit="ppm" readOnly={readOnly} onChange={v => update({ co2Low: parseFloat(v) || 0 })} />
+        </div>
+      </div>
+
+      {/* ── Bottom: Hooter Settings ── */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-5">Hooter Settings</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-5 max-w-3xl">
+          <TimingRow label="Hooter ON Time:" field={cur.hooterOnTime} readOnly={readOnly}
+            onChange={u => update({ hooterOnTime: { ...cur.hooterOnTime, ...u } })} />
+          <TimingRow label="Hooter Cooldown:" field={cur.hooterCooldown} readOnly={readOnly}
+            onChange={u => update({ hooterCooldown: { ...cur.hooterCooldown, ...u } })} />
+        </div>
+      </div>
+
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function SettingsPage() {
@@ -703,7 +843,7 @@ export default function SettingsPage() {
     { key: 'manual', label: 'Manual Timings', short: 'Manual' },
     { key: 'pump', label: 'Pump Settings', short: 'Pump' },
     { key: 'recipes', label: 'Recipes', short: 'Recipes' },
-    { key: 'limits', label: 'Email Limits', short: 'Limits' },
+    { key: 'limits', label: 'Email & Hooter Limits', short: 'Limits' },
   ]
   const mlhTabs: { key: MlhTabType; label: string; short: string }[] = [
     { key: 'timings', label: 'Setpoint & Timings', short: 'Setpoints' },
@@ -774,12 +914,7 @@ export default function SettingsPage() {
         {!isMlh && activeEmsTab === 'manual' && <EmsManualTab key={`manual-${activeEmsRoom}`} activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
         {!isMlh && activeEmsTab === 'pump' && <EmsPumpTab key={`pump-${activeEmsRoom}`} activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
         {!isMlh && activeEmsTab === 'recipes' && <EmsRecipesTab deviceId={deviceId} readOnly={readOnly} />}
-        {!isMlh && activeEmsTab === 'limits' && (
-          <div className="px-8 py-12 text-center text-gray-400">
-            <p className="text-sm">Email limits — configure alerts for CO₂ and C₂H₄ thresholds.</p>
-            <p className="text-xs mt-2">Visit the Limits page for full configuration.</p>
-          </div>
-        )}
+        {!isMlh && activeEmsTab === 'limits' && <EmsLimitsTab activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
 
         {/* MLH tab content */}
         {isMlh && activeMlhTab === 'timings' && <MlhTimingsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
