@@ -1164,6 +1164,9 @@ export default function DetailedGraphsPage() {
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
 
+  // Track live relay states from /state topic so trigger bands appear on graphs
+  const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
+
   useEffect(() => {
     if (localStorage.getItem('isAuthenticated') !== 'true') router.push('/')
     else setIsAuthenticated(true)
@@ -1221,13 +1224,30 @@ export default function DetailedGraphsPage() {
     return () => { cancelled = true }
   }, [timeRange.mode, deviceId, roomId])
 
-  useIoT(
-    [`devices/${deviceId}/readings`],
-    useCallback(({ payload }) => {
+ useIoT(
+    [`devices/${deviceId}/readings`, `devices/${deviceId}/state`],
+    useCallback(({ topic, payload }) => {
+      // Update relay state ref from /state messages (SOV, Exhaust etc.)
+      if (topic.endsWith('/state')) {
+        const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
+        const roomIndex = parseInt(roomId, 10)
+        const room = roomsArr.find((r: any) => {
+          const rid = typeof r?.id === 'string' ? parseInt(r.id.replace('room-', ''), 10) : Number(r?.id)
+          return rid === roomIndex
+        })
+        if (room) {
+          relayStateRef.current = {
+            sovOn: !!(room.sov ?? room.sovOn ?? false),
+            exhOn: !!(room.exh ?? room.exhOn ?? false),
+          }
+        }
+        return
+      }
+
       // Only feed live mode — historical modes use the /range fetch instead
       if (timeRange.mode !== 'live') return
 
-      // Firmware publishes { device, version, rooms: [{id, temp, CO2|humidity, O2, c2h4, sov, exh|comp}, ...] }
+      // Firmware publishes { device, version, rooms: [{id, temp, CO2|humidity, O2, c2h4}, ...] }
       const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
       if (roomsArr.length === 0) return
 
@@ -1236,16 +1256,16 @@ export default function DetailedGraphsPage() {
       if (!room) return
 
       // Field name compatibility:
-      //   EMS room → { temp, CO2, O2, c2h4, sov, exh }
-      //   MLH room → { temp, humidity, sov, comp }
+      //   EMS room → { temp, CO2, O2, c2h4 }
+      //   MLH room → { temp, humidity }
       // The graphs page reuses the CO2 series to also display "Humidity" for MLH (see MLH_METRIC_META above).
       const temp = Number(room.temp ?? 0)
       const co2 = Number(room.CO2 ?? room.humidity ?? 0)
       const o2 = Number(room.O2 ?? 0)
       const c2h4 = Number(room.c2h4 ?? 0)
-      // Per-room trigger flags — EMS uses exh/sov as proxies for CO2/C2H4 trigger lines
-      const trigCO2 = !!(room.exh ?? room.triggerco2 ?? false)
-      const trigC2H4 = !!(room.sov ?? room.triggerc2h4 ?? false)
+      // Per-room trigger flags — read from the relay state ref (updated by /state messages)
+      const trigCO2 = relayStateRef.current.exhOn
+      const trigC2H4 = relayStateRef.current.sovOn
       const label = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
       const prefix = ROOM_PREFIX[roomId] ?? 'R1'
