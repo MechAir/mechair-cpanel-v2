@@ -581,7 +581,19 @@ export default function DeviceRoomsPage() {
     const room = rooms.find(r => r.id === roomId)
     if (!room) return
     const cur = pendingResetChanges[roomId]?.isOn !== undefined ? pendingResetChanges[roomId].isOn! : room.isOn
-    setPendingResetChanges(prev => ({ ...prev, [roomId]: { ...(prev[roomId] ?? {}), isOn: !cur } }))
+    const next = !cur
+    setPendingResetChanges(prev => {
+      const updated = { ...prev, [roomId]: { ...(prev[roomId] ?? {}), isOn: next } }
+      // If all overrides for this room match the server state, remove the entry entirely
+      const orig = room
+      const entry = updated[roomId]
+      const isOnSame = entry.isOn === undefined || entry.isOn === orig.isOn
+      const sovSame = entry.sovOn === undefined || entry.sovOn === orig.sovOn
+      const exhSame = entry.exhOn === undefined || entry.exhOn === orig.exhOn
+      const compSame = entry.compOn === undefined || entry.compOn === orig.compOn
+      if (isOnSame && sovSame && exhSame && compSame) { const { [roomId]: _, ...rest } = updated; return rest }
+      return updated
+    })
   }
 
   // Relay 1 toggle (SOV for EMS, Compressor for MLH)
@@ -591,13 +603,26 @@ export default function DeviceRoomsPage() {
     if (!isAuto) {
       setPendingRelay1(prev => {
         const cur = id in prev ? prev[id] : (isMlh ? (rooms.find(r => r.id === id)?.compOn ?? false) : (rooms.find(r => r.id === id)?.sovOn ?? false))
-        return { ...prev, [id]: !cur }
+        const next = !cur
+        const orig = isMlh ? (rooms.find(r => r.id === id)?.compOn ?? false) : (rooms.find(r => r.id === id)?.sovOn ?? false)
+        if (next === orig) { const { [id]: _, ...rest } = prev; return rest }
+        return { ...prev, [id]: next }
       })
     } else {
       const room = rooms.find(r => r.id === id)
       if (!room) return
       const cur = pendingResetChanges[id]?.sovOn !== undefined ? pendingResetChanges[id].sovOn! : room.sovOn
-      setPendingResetChanges(prev => ({ ...prev, [id]: { ...(prev[id] ?? {}), sovOn: !cur } }))
+      const next = !cur
+      setPendingResetChanges(prev => {
+        const updated = { ...prev, [id]: { ...(prev[id] ?? {}), sovOn: next } }
+        const entry = updated[id]
+        const isOnSame = entry.isOn === undefined || entry.isOn === room.isOn
+        const sovSame = entry.sovOn === undefined || entry.sovOn === room.sovOn
+        const exhSame = entry.exhOn === undefined || entry.exhOn === room.exhOn
+        const compSame = entry.compOn === undefined || entry.compOn === room.compOn
+        if (isOnSame && sovSame && exhSame && compSame) { const { [id]: _, ...rest } = updated; return rest }
+        return updated
+      })
     }
   }
 
@@ -608,13 +633,26 @@ export default function DeviceRoomsPage() {
     if (!isAuto) {
       setPendingRelay2(prev => {
         const cur = id in prev ? prev[id] : (rooms.find(r => r.id === id)?.exhOn ?? false)
-        return { ...prev, [id]: !cur }
+        const next = !cur
+        const orig = rooms.find(r => r.id === id)?.exhOn ?? false
+        if (next === orig) { const { [id]: _, ...rest } = prev; return rest }
+        return { ...prev, [id]: next }
       })
     } else {
       const room = rooms.find(r => r.id === id)
       if (!room) return
       const cur = pendingResetChanges[id]?.exhOn !== undefined ? pendingResetChanges[id].exhOn! : room.exhOn
-      setPendingResetChanges(prev => ({ ...prev, [id]: { ...(prev[id] ?? {}), exhOn: !cur } }))
+      const next = !cur
+      setPendingResetChanges(prev => {
+        const updated = { ...prev, [id]: { ...(prev[id] ?? {}), exhOn: next } }
+        const entry = updated[id]
+        const isOnSame = entry.isOn === undefined || entry.isOn === room.isOn
+        const sovSame = entry.sovOn === undefined || entry.sovOn === room.sovOn
+        const exhSame = entry.exhOn === undefined || entry.exhOn === room.exhOn
+        const compSame = entry.compOn === undefined || entry.compOn === room.compOn
+        if (isOnSame && sovSame && exhSame && compSame) { const { [id]: _, ...rest } = updated; return rest }
+        return updated
+      })
     }
   }
 
