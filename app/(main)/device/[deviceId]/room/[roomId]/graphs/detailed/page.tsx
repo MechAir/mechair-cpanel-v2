@@ -246,6 +246,7 @@ const DOT_PAD = 6
 function SegmentedLine({
   data, triggers, lo, hi, W, H, baseColor, triggerColor,
   hoverIdx, onHoverChange, timestamps, relayIntervals,
+  onEventHover,
 }: {
   data: number[]
   triggers: boolean[]
@@ -257,6 +258,7 @@ function SegmentedLine({
   onHoverChange: (i: number | null) => void
   timestamps?: number[]             // ms epoch per data point
   relayIntervals?: RelayInterval[]  // exact ON/OFF event intervals
+  onEventHover?: (info: { x: number; label: string } | null) => void
 }) {
   if (data.length < 2 || W === 0 || H === 0) return null
 
@@ -289,7 +291,7 @@ function SegmentedLine({
           fill={triggerColor} opacity={0.13} rx={2} />
       }) : null}
 
-      {/* Event dots — visible dot + invisible larger hit area for hover tooltip */}
+      {/* Event dots — visible dot + invisible larger hit area that fires onEventHover */}
       {hasIntervals ? relayIntervals!.map((iv, i) => {
         const onTime = new Date(iv.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         const offTime = new Date(iv.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -301,18 +303,16 @@ function SegmentedLine({
                 fill={triggerColor} stroke="white" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
               <circle cx={xOfTime(iv.start)} cy={H - 8} r={14}
                 fill="transparent" style={{ cursor: 'pointer' }}
-                onMouseMove={e => e.stopPropagation()}>
-                <title>▶ ON at {onTime} (duration {durSec}s)</title>
-              </circle>
+                onMouseEnter={() => onEventHover?.({ x: xOfTime(iv.start), label: `▶ ON at ${onTime} (${durSec}s)` })}
+                onMouseLeave={() => onEventHover?.(null)} />
             </>)}
             {iv.end >= tStart && iv.end <= tEnd && (<>
               <circle cx={xOfTime(iv.end)} cy={H - 8} r={5}
                 fill="white" stroke={triggerColor} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
               <circle cx={xOfTime(iv.end)} cy={H - 8} r={14}
                 fill="transparent" style={{ cursor: 'pointer' }}
-                onMouseMove={e => e.stopPropagation()}>
-                <title>■ OFF at {offTime} (duration {durSec}s)</title>
-              </circle>
+                onMouseEnter={() => onEventHover?.({ x: xOfTime(iv.end), label: `■ OFF at ${offTime} (${durSec}s)` })}
+                onMouseLeave={() => onEventHover?.(null)} />
             </>)}
           </g>
         )
@@ -376,6 +376,7 @@ function GraphExpandModal({
   const wrapRef = useRef<HTMLDivElement>(null)
   const { w: W, h: H } = useSize(wrapRef)
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+  const [eventHover, setEventHover] = useState<{ x: number; label: string } | null>(null)
   const m = METRIC_META[metricKey]
   const { color, triggerColor } = m
   const { lo, hi } = getRange(data)
@@ -664,6 +665,7 @@ function MetricGraph({ metricKey, data, triggers, labels, latestValue, tall, isL
                   onHoverChange={setHoverIdx}
                   timestamps={timestamps}
                   relayIntervals={relayIntervals}
+                  onEventHover={setEventHover}
                 />
               </svg>
             ) : null}
@@ -674,6 +676,15 @@ function MetricGraph({ metricKey, data, triggers, labels, latestValue, tall, isL
                   {hoverTriggered && <div style={{ fontSize: 9, fontWeight: 700, opacity: 0.9, marginBottom: 2 }}>⚠ TRIGGERED</div>}
                   {hoverVal.toFixed(m.decimals)} {m.unit}
                   <div style={{ fontSize: 10, fontWeight: 400, opacity: 0.85, marginTop: 2 }}>{labels[hoverIdx] ?? ''}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Event dot tooltip */}
+            {eventHover && (
+              <div style={{ position: 'absolute', bottom: 18, left: eventHover.x > W * 0.7 ? 'auto' : eventHover.x + 8, right: eventHover.x > W * 0.7 ? (W - eventHover.x) + 8 : 'auto', pointerEvents: 'none', zIndex: 100 }}>
+                <div style={{ background: triggerColor, color: 'white', borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', boxShadow: '0 4px 16px rgba(0,0,0,0.25)' }}>
+                  {eventHover.label}
                 </div>
               </div>
             )}
