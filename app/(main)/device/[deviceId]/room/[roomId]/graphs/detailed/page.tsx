@@ -1355,9 +1355,32 @@ export default function DetailedGraphsPage() {
           return rid === stateRoomIdx
         })
         if (stateRoom) {
-          relayStateRef.current = {
-            sovOn: !!(stateRoom.sov ?? stateRoom.sovOn ?? false),
-            exhOn: !!(stateRoom.exh ?? stateRoom.exhOn ?? false),
+          const nowExh = !!(stateRoom.exh ?? stateRoom.exhOn ?? false)
+          const nowSov = !!(stateRoom.sov ?? stateRoom.sovOn ?? false)
+          const prevExh = relayStateRef.current.exhOn
+          const prevSov = relayStateRef.current.sovOn
+          relayStateRef.current = { sovOn: nowSov, exhOn: nowExh }
+
+          // Update intervals in real-time so bands/dots appear live
+          if (timeRange.mode === 'live' && (nowExh !== prevExh || nowSov !== prevSov)) {
+            const t = Date.now()
+            setAllData(prev => {
+              let exhIvs = [...prev.intervalsCO2]
+              let sovIvs = [...prev.intervalsC2H4]
+              // Exhaust toggled
+              if (nowExh && !prevExh) {
+                exhIvs.push({ start: t, end: t })          // open new interval
+              } else if (!nowExh && prevExh && exhIvs.length > 0) {
+                exhIvs[exhIvs.length - 1] = { ...exhIvs[exhIvs.length - 1], end: t }  // close last
+              }
+              // SOV toggled
+              if (nowSov && !prevSov) {
+                sovIvs.push({ start: t, end: t })
+              } else if (!nowSov && prevSov && sovIvs.length > 0) {
+                sovIvs[sovIvs.length - 1] = { ...sovIvs[sovIvs.length - 1], end: t }
+              }
+              return { ...prev, intervalsCO2: exhIvs, intervalsC2H4: sovIvs }
+            })
           }
         }
         return
@@ -1399,6 +1422,17 @@ export default function DetailedGraphsPage() {
       const cutoff = nowMs - LIVE_WINDOW_MS
       setAllData(prev => {
         if (prev.loading) return prev
+        // Extend any open (ON) interval's end to now so the band grows live
+        let exhIvs = prev.intervalsCO2
+        let sovIvs = prev.intervalsC2H4
+        if (relayStateRef.current.exhOn && exhIvs.length > 0) {
+          exhIvs = [...exhIvs]
+          exhIvs[exhIvs.length - 1] = { ...exhIvs[exhIvs.length - 1], end: nowMs }
+        }
+        if (relayStateRef.current.sovOn && sovIvs.length > 0) {
+          sovIvs = [...sovIvs]
+          sovIvs[sovIvs.length - 1] = { ...sovIvs[sovIvs.length - 1], end: nowMs }
+        }
         const newTs = [...prev.timestamps, nowMs]
         const s = Math.max(0, newTs.findIndex(t => t >= cutoff))
         return {
@@ -1411,6 +1445,8 @@ export default function DetailedGraphsPage() {
           triggersC2H4: [...prev.triggersC2H4, trigC2H4].slice(s),
           timestamps: newTs.slice(s),
           labels: [...prev.labels, label].slice(s),
+          intervalsCO2: exhIvs.filter(iv => iv.end >= cutoff),
+          intervalsC2H4: sovIvs.filter(iv => iv.end >= cutoff),
           latestTemp: temp, latestCO2: co2, latestO2: o2, latestC2H4: c2h4,
         }
       })
