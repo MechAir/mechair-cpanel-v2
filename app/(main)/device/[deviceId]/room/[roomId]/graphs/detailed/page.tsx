@@ -1279,7 +1279,7 @@ export default function DetailedGraphsPage() {
         const readings = allReadings.slice(-LIVE_POINTS_COUNT)
         const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
         const roomName = `Room ${roomId}`
-        const timestamps = readings.map(r => r.timestamp)
+        const timestamps = readings.map(r => new Date(r.timestamp).getTime())
         // Parse relay events for trigger bands
         let relayEvents: { timestamp: string; note?: string }[] = []
         try {
@@ -1409,7 +1409,7 @@ export default function DetailedGraphsPage() {
       const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
       const roomName = `Room ${roomId}`
       const labels = readings.map(r => formatLabel(r.timestamp, range.mode))
-      const timestamps = readings.map(r => r.timestamp)
+      const timestamps = readings.map(r => new Date(r.timestamp).getTime())
       const lastIdx = readings.length - 1
 
       // Parse relay events for trigger bands
