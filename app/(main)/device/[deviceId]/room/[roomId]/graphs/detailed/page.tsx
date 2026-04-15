@@ -289,27 +289,31 @@ function SegmentedLine({
           fill={triggerColor} opacity={0.13} rx={2} />
       }) : null}
 
-      {/* Event dots — small dots at exact ON and OFF positions with hover tooltips */}
+      {/* Event dots — visible dot + invisible larger hit area for hover tooltip */}
       {hasIntervals ? relayIntervals!.map((iv, i) => {
         const onTime = new Date(iv.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         const offTime = new Date(iv.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         const durSec = Math.round((iv.end - iv.start) / 1000)
         return (
           <g key={`ev-${i}`}>
-            {iv.start >= tStart && iv.start <= tEnd && (
+            {iv.start >= tStart && iv.start <= tEnd && (<>
               <circle cx={xOfTime(iv.start)} cy={H - 8} r={5}
-                fill={triggerColor} stroke="white" strokeWidth={1.5}
-                style={{ cursor: 'pointer' }}>
-                <title>ON at {onTime} ({durSec}s)</title>
+                fill={triggerColor} stroke="white" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+              <circle cx={xOfTime(iv.start)} cy={H - 8} r={14}
+                fill="transparent" style={{ cursor: 'pointer' }}
+                onMouseMove={e => e.stopPropagation()}>
+                <title>▶ ON at {onTime} (duration {durSec}s)</title>
               </circle>
-            )}
-            {iv.end >= tStart && iv.end <= tEnd && (
+            </>)}
+            {iv.end >= tStart && iv.end <= tEnd && (<>
               <circle cx={xOfTime(iv.end)} cy={H - 8} r={5}
-                fill="white" stroke={triggerColor} strokeWidth={1.5}
-                style={{ cursor: 'pointer' }}>
-                <title>OFF at {offTime} ({durSec}s)</title>
+                fill="white" stroke={triggerColor} strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+              <circle cx={xOfTime(iv.end)} cy={H - 8} r={14}
+                fill="transparent" style={{ cursor: 'pointer' }}
+                onMouseMove={e => e.stopPropagation()}>
+                <title>■ OFF at {offTime} (duration {durSec}s)</title>
               </circle>
-            )}
+            </>)}
           </g>
         )
       }) : null}
