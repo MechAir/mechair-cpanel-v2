@@ -316,8 +316,8 @@ function DeviceCard({
 
       {/* Room indicators */}
       <div className="flex gap-1.5 mb-4">
-        {device.rooms.map(room => (
-          <div key={room.id} title={room.name}
+{(device.rooms ?? []).map(room => (
+  <div key={room.id} title={room.name}
             className={`flex-1 h-1.5 rounded-full transition-colors
               ${room.isOn ? 'bg-[#2B8DB8]' : 'bg-gray-200'}`} />
         ))}
@@ -325,7 +325,7 @@ function DeviceCard({
 
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-gray-500 gap-2">
-        <span className="whitespace-nowrap">{activeRooms}/{device.rooms.length} rooms active</span>
+        <span className="whitespace-nowrap">{activeRooms}/{(device.rooms ?? []).length} rooms active</span>
         <div className="flex items-center gap-1 whitespace-nowrap">
           <span className={`w-1.5 h-1.5 rounded-full ${minutesAgo < 5 ? 'bg-emerald-400' : minutesAgo < 60 ? 'bg-amber-400' : 'bg-gray-300'}`} />
           <span>{lastSeenLabel}</span>
@@ -638,7 +638,7 @@ export default function DashboardPage() {
       // Optimistic Update: Mark the entire device as powered off.
       setDevices(prev => prev.map(d =>
         d.deviceId === targetId
-          ? { ...d, isPoweredOn: false, rooms: d.rooms.map(r => ({ ...r, isOn: false })) }
+          ? { ...d, isPoweredOn: false, rooms: (d.rooms ?? []).map(r => ({ ...r, isOn: false })) }
           : d
       ))
       setPowerOffDevice(null)
