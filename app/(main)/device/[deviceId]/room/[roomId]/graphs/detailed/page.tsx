@@ -572,6 +572,7 @@ function MetricGraph({ metricKey, data, triggers, labels, latestValue, tall, isL
   const wrapRef = useRef<HTMLDivElement>(null)
   const { w: W, h: H } = useSize(wrapRef)
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+  const [eventHover, setEventHover] = useState<{ x: number; label: string } | null>(null)
   const m = METRIC_META[metricKey]
   const { color, triggerColor } = m
   const { lo, hi } = getRange(data)
