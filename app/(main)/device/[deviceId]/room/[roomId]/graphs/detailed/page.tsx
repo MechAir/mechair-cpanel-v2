@@ -1213,8 +1213,7 @@ export default function DetailedGraphsPage() {
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'ok' | 'error'>('connecting')
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
-  const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
-
+  
   // Track live relay states from /state topic so trigger bands appear on graphs
   const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
 
