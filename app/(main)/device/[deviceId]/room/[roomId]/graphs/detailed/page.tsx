@@ -1137,6 +1137,56 @@ function buildRangeUrl(deviceId: string, range: TimeRange): string {
   return `${base}?${params.toString()}`
 }
 
+// Build trigger boolean arrays from relay events (Events table) + reading timestamps.
+// Events have notes like "[device] Room 1 Exhaust ON" / "[device] Room 1 SOV OFF".
+// Returns a boolean[] aligned to `timestamps` where true = relay was ON at that moment.
+function buildTriggerArrayFromEvents(
+  events: { timestamp: string; note?: string }[],
+  timestamps: string[],
+  relayKeyword: string,   // "Exhaust" or "SOV"
+  roomName: string        // "Room 1"
+): boolean[] {
+  // Parse events into ON/OFF intervals
+  const intervals: { start: number; end: number }[] = []
+  let onTime: number | null = null
+  for (const e of events) {
+    const note = e.note ?? ''
+    if (!note.includes(roomName) || !note.includes(relayKeyword)) continue
+    const t = new Date(e.timestamp).getTime()
+    if (note.includes('ON') && !note.includes('OFF')) {
+      if (onTime === null) onTime = t
+    } else if (note.includes('OFF')) {
+      if (onTime !== null) { intervals.push({ start: onTime, end: t }); onTime = null }
+    }
+  }
+  // If relay is still ON at the end of the window, close the interval at the last timestamp
+  if (onTime !== null && timestamps.length > 0) {
+    intervals.push({ start: onTime, end: new Date(timestamps[timestamps.length - 1]).getTime() + 1 })
+  }
+  // For each reading timestamp, check if it falls inside any ON interval
+  return timestamps.map(ts => {
+    const t = new Date(ts).getTime()
+    return intervals.some(iv => t >= iv.start && t <= iv.end)
+  })
+}
+
+// Build the events API URL for the same time window as readings
+function buildEventsUrl(deviceId: string, range: TimeRange): string {
+  const base = `${API_BASE}/devices/${deviceId}/events/range`
+  const params = new URLSearchParams({ mode: 'custom', eventType: 'relay_change' })
+  const now = new Date()
+  switch (range.mode) {
+    case 'live':
+    case 'last_hour': params.set('from', new Date(now.getTime() - 60 * 60 * 1000).toISOString()); params.set('to', now.toISOString()); break
+    case '6h':        params.set('from', new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString()); params.set('to', now.toISOString()); break
+    case '1d':        params.set('from', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()); params.set('to', now.toISOString()); break
+    case '1w':        params.set('from', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()); params.set('to', now.toISOString()); break
+    case 'month':     params.set('from', new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()); params.set('to', now.toISOString()); break
+    case 'custom':    if (range.customFrom && range.customTo) { params.set('from', range.customFrom); params.set('to', range.customTo) }; break
+  }
+  return `${base}?${params.toString()}`
+}
+
 interface AllData {
   temp: number[]; co2: number[]; o2: number[]; c2h4: number[]
   triggersCO2: boolean[]
@@ -1163,6 +1213,7 @@ export default function DetailedGraphsPage() {
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'ok' | 'error'>('connecting')
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
+  const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
 
   // Track live relay states from /state topic so trigger bands appear on graphs
   const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
@@ -1182,7 +1233,7 @@ export default function DetailedGraphsPage() {
     setAllData({ temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], labels: [], loading: true })
     setLiveStatus('connecting')
 
-    // Seed with last 15 readings
+    // Seed with last 15 readings + relay events for trigger bands
     let cancelled = false
     ;(async () => {
       try {
@@ -1191,21 +1242,35 @@ export default function DetailedGraphsPage() {
         params.set('mode', 'custom')
         params.set('from', new Date(now.getTime() - 60 * 60 * 1000).toISOString()) // last 1h window
         params.set('to', now.toISOString())
-        const res = await fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params.toString()}`)
-        if (!res.ok) return
-        const json = await res.json()
+        const [readingsRes, eventsRes] = await Promise.all([
+          fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params.toString()}`),
+          fetch(buildEventsUrl(deviceId, { mode: 'last_hour' }))
+        ])
+        if (!readingsRes.ok) return
+        const json = await readingsRes.json()
         if (!json.success || cancelled) return
         const allReadings: RangeReading[] = (json.data.readings ?? []).slice().sort(
           (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         )
-        // Take only the last LIVE_POINTS_COUNT readings
         const readings = allReadings.slice(-LIVE_POINTS_COUNT)
         const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
-        const roomIdx = parseInt(roomKey.replace('R', ''), 10)
+        const roomName = `Room ${roomId}`
+        const timestamps = readings.map(r => r.timestamp)
+        // Parse relay events for trigger bands
+        let relayEvents: { timestamp: string; note?: string }[] = []
+        try {
+          const evJson = await eventsRes.json()
+          if (evJson.success) relayEvents = evJson.data.events ?? []
+        } catch { /* ignore events fetch failure */ }
         const formatLiveLabel = (ts: string) => {
           const d = new Date(ts)
           return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
         }
+        // Set initial relay state from most recent events
+        const lastExhOn = [...relayEvents].reverse().find(e => (e.note ?? '').includes(roomName) && (e.note ?? '').includes('Exhaust'))
+        const lastSovOn = [...relayEvents].reverse().find(e => (e.note ?? '').includes(roomName) && (e.note ?? '').includes('SOV'))
+        if (lastExhOn) relayStateRef.current.exhOn = (lastExhOn.note ?? '').includes('ON') && !(lastExhOn.note ?? '').includes('OFF')
+        if (lastSovOn) relayStateRef.current.sovOn = (lastSovOn.note ?? '').includes('ON') && !(lastSovOn.note ?? '').includes('OFF')
         setAllData({
           loading: false,
           labels: readings.map(r => formatLiveLabel(r.timestamp)),
@@ -1213,8 +1278,8 @@ export default function DetailedGraphsPage() {
           co2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
           o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
           c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
-          triggersCO2: readings.map(r => !!(r as any)[`room${roomIdx}`]?.triggerco2),
-          triggersC2H4: readings.map(r => !!(r as any)[`room${roomIdx}`]?.triggerc2h4),
+          triggersCO2: buildTriggerArrayFromEvents(relayEvents, timestamps, 'Exhaust', roomName),
+          triggersC2H4: buildTriggerArrayFromEvents(relayEvents, timestamps, 'SOV', roomName),
         })
         setLiveStatus('ok')
       } catch {
@@ -1227,7 +1292,7 @@ export default function DetailedGraphsPage() {
  useIoT(
     [`devices/${deviceId}/readings`, `devices/${deviceId}/state`],
     useCallback(({ topic, payload }) => {
-      // Update relay state ref from /state messages (SOV, Exhaust etc.)
+      // Track relay states from /state messages for live trigger bands
       if (topic.endsWith('/state')) {
         const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
         const roomIndex = parseInt(roomId, 10)
@@ -1255,15 +1320,11 @@ export default function DetailedGraphsPage() {
       const room = roomsArr.find((r: any) => Number(r?.id) === roomIndex)
       if (!room) return
 
-      // Field name compatibility:
-      //   EMS room → { temp, CO2, O2, c2h4 }
-      //   MLH room → { temp, humidity }
-      // The graphs page reuses the CO2 series to also display "Humidity" for MLH (see MLH_METRIC_META above).
       const temp = Number(room.temp ?? 0)
       const co2 = Number(room.CO2 ?? room.humidity ?? 0)
       const o2 = Number(room.O2 ?? 0)
       const c2h4 = Number(room.c2h4 ?? 0)
-      // Per-room trigger flags — read from the relay state ref (updated by /state messages)
+      // Use relay state ref (updated by /state messages) for trigger flags
       const trigCO2 = relayStateRef.current.exhOn
       const trigC2H4 = relayStateRef.current.sovOn
       const label = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -1302,19 +1363,29 @@ export default function DetailedGraphsPage() {
   const fetchRange = useCallback(async (range: TimeRange) => {
     setAllData(prev => ({ ...prev, loading: true, temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], labels: [] }))
     try {
-      const url = buildRangeUrl(deviceId, range)
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('fetch failed')
-      const json = await res.json()
+      const [readingsRes, eventsRes] = await Promise.all([
+        fetch(buildRangeUrl(deviceId, range)),
+        fetch(buildEventsUrl(deviceId, range))
+      ])
+      if (!readingsRes.ok) throw new Error('fetch failed')
+      const json = await readingsRes.json()
       if (!json.success) { setAllData(prev => ({ ...prev, loading: false })); return }
 
-      // API may return descending — sort ascending so newest data appears on the right
       const readings: RangeReading[] = (json.data.readings ?? []).slice().sort(
         (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       )
       const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
+      const roomName = `Room ${roomId}`
       const labels = readings.map(r => formatLabel(r.timestamp, range.mode))
+      const timestamps = readings.map(r => r.timestamp)
       const lastIdx = readings.length - 1
+
+      // Parse relay events for trigger bands
+      let relayEvents: { timestamp: string; note?: string }[] = []
+      try {
+        const evJson = await eventsRes.json()
+        if (evJson.success) relayEvents = evJson.data.events ?? []
+      } catch { /* ignore events fetch failure — triggers just won't show */ }
 
       setAllData({
         loading: false, labels,
@@ -1322,8 +1393,8 @@ export default function DetailedGraphsPage() {
         co2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
         o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
         c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
-        triggersCO2: readings.map(r => !!(r as any)[`room${parseInt(roomKey.replace('R', ''), 10)}`]?.triggerco2),
-        triggersC2H4: readings.map(r => !!(r as any)[`room${parseInt(roomKey.replace('R', ''), 10)}`]?.triggerc2h4),
+        triggersCO2: buildTriggerArrayFromEvents(relayEvents, timestamps, 'Exhaust', roomName),
+        triggersC2H4: buildTriggerArrayFromEvents(relayEvents, timestamps, 'SOV', roomName),
         latestTemp: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'temp') : undefined,
         latestCO2: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'CO2') : undefined,
         latestO2: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'O2') : undefined,
