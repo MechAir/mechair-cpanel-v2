@@ -697,7 +697,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const readingRows = fetchedReadings.map(r => {
                 const room = (r as any)[`room${roomIdx}`] ?? {}
                 return {
-                    _ts: new Date(r.timestamp).getTime(),
+                    __ts: new Date(r.timestamp).getTime(),
                     _type: 'reading' as const,
                     'Date & Time': formatFullDate(r.timestamp),
                     'Type': 'Reading',
@@ -705,8 +705,6 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                     'CO₂ (ppm)': extractMetric(r, roomKey, 'CO2'),
                     'Humidity (%)': extractMetric(r, roomKey, 'O2'),
                     'C₂H₄ / Ethylene (ppm)': extractMetric(r, roomKey, 'C2H4'),
-                    'CO₂ Triggered': room.triggerco2 ? 'EXH-ON' : '',
-                    'C₂H₄ Triggered': room.triggerc2h4 ? 'SOV-ON' : '',
                     'Event': '',
                 }
             })
@@ -735,8 +733,6 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                         'CO₂ (ppm)': '',
                         'Humidity (%)': '',
                         'C₂H₄ / Ethylene (ppm)': '',
-                        'CO₂ Triggered': '',
-                        'C₂H₄ Triggered': '',
                         'Event': `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
                     }))
                 }
@@ -751,7 +747,25 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
 
             const wsData = utils.json_to_sheet(allRows)
             wsData['!cols'] = [
-                { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 40 }
+                { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 40 }
+            ]
+
+            // ─── Readings-only sheet ────────────────────────────────────────────
+            const readingsOnlyRows = readingRows.map(({ _ts, _type, Type, Event, ...rest }) => rest)
+            const wsReadings = utils.json_to_sheet(readingsOnlyRows)
+            wsReadings['!cols'] = [
+                { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }
+            ]
+
+            // ─── Events-only sheet ──────────────────────────────────────────────
+            const eventsOnlyRows = eventRows.map(evt => ({
+                'Date & Time': evt['Date & Time'],
+                'Type': evt['Type'],
+                'Event': evt['Event'],
+            }))
+            const wsEvents = utils.json_to_sheet(eventsOnlyRows)
+            wsEvents['!cols'] = [
+                { wch: 28 }, { wch: 24 }, { wch: 60 }
             ]
 
             // ─── Summary: recomputed from the full reading set (not previewData) ─
@@ -802,6 +816,8 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
 
             const wb = utils.book_new()
             utils.book_append_sheet(wb, wsData, 'Data')
+            utils.book_append_sheet(wb, wsReadings, 'Readings')
+            utils.book_append_sheet(wb, wsEvents, 'Events')
             utils.book_append_sheet(wb, wsSummary, 'Summary')
             utils.book_append_sheet(wb, wsInfo, 'Info')
 
