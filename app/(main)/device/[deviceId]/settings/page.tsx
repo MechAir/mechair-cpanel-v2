@@ -714,6 +714,24 @@ function EmsLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
       .finally(() => setLoading(false))
   }, [deviceId])
 
+  // Live updates from device via IoT WebSocket
+  useIoT(
+    [`devices/${deviceId}/settings/email-hooter-limits`],
+    useCallback(({ payload }) => {
+      // Firmware publishes { "limits": { "Room 1": {...} } }
+      const incoming = payload?.limits ?? payload
+      if (incoming && incoming['Room 1'] !== undefined) {
+        setSettings(prev => {
+          const updated = { ...prev }
+          emsRooms.forEach(room => {
+            if (incoming[room]) updated[room] = { ...defaultEmailHooterLimits, ...prev[room], ...incoming[room] }
+          })
+          return updated
+        })
+      }
+    }, [])
+  )
+
   const cur = settings[activeRoom]
   const update = (patch: Partial<EmailHooterLimits>) => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], ...patch } }))
 
