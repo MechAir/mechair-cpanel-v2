@@ -672,7 +672,7 @@ function MlhEnabledRoomsTab({ deviceId, readOnly }: { deviceId: string; readOnly
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface EmailHooterLimits {
-  senderEmail: string
+  // senderEmail: string
   recipientEmails: string[]
   emailCooldown: TimingField
   c2h4High: number
@@ -684,7 +684,7 @@ interface EmailHooterLimits {
 }
 
 const defaultEmailHooterLimits: EmailHooterLimits = {
-  senderEmail: '',
+  // senderEmail: '',
   recipientEmails: [],
   emailCooldown: { value: 30, unit: 'min' },
   c2h4High: 5.0,
@@ -742,12 +742,12 @@ function EmsLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Email Settings</p>
 
-          {/* Sender Email */}
+          /* {/* Sender Email */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
             <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">Sender Email:</label>
             <input type="email" value={cur.senderEmail} onChange={e => !readOnly && update({ senderEmail: e.target.value })} readOnly={readOnly} disabled={readOnly} placeholder="alerts@mechair.co.in"
               className={`flex-1 text-sm font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
-          </div>
+          </div> */
 
           {/* Recipient Emails */}
           <div className="space-y-2">
