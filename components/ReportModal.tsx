@@ -697,7 +697,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const readingRows = fetchedReadings.map(r => {
                 const room = (r as any)[`room${roomIdx}`] ?? {}
                 return {
-                    __ts: new Date(r.timestamp).getTime(),
+                    _ts: new Date(r.timestamp).getTime(),
                     _type: 'reading' as const,
                     'Date & Time': formatFullDate(r.timestamp),
                     'Type': 'Reading',
