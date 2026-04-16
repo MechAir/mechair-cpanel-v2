@@ -740,9 +740,9 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 console.log('Events fetch failed (non-critical):', e)
             }
 
-            // Merge readings + events sorted by timestamp
+            // Merge readings + events sorted by timestamp DESCENDING (latest first)
             const allRows = [...readingRows, ...eventRows]
-                .sort((a, b) => a._ts - b._ts)
+                .sort((a, b) => b._ts - a._ts)
                 .map(({ _ts, _type, ...row }) => row)
 
             const wsData = utils.json_to_sheet(allRows)
@@ -750,19 +750,29 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 40 }
             ]
 
-            // ─── Readings-only sheet ────────────────────────────────────────────
-            const readingsOnlyRows = readingRows.map(({ _ts, _type, Type, Event, ...rest }) => rest)
+            // ─── Readings-only sheet (descending, strip internal fields + event/type columns) ─
+            const readingsOnlyRows = [...readingRows]
+                .sort((a, b) => b._ts - a._ts)
+                .map(r => ({
+                    'Date & Time': r['Date & Time'],
+                    'Temperature (°C)': r['Temperature (°C)'],
+                    'CO₂ (ppm)': r['CO₂ (ppm)'],
+                    'Humidity (%)': r['Humidity (%)'],
+                    'C₂H₄ / Ethylene (ppm)': r['C₂H₄ / Ethylene (ppm)'],
+                }))
             const wsReadings = utils.json_to_sheet(readingsOnlyRows)
             wsReadings['!cols'] = [
                 { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }
             ]
 
-            // ─── Events-only sheet ──────────────────────────────────────────────
-            const eventsOnlyRows = eventRows.map(evt => ({
-                'Date & Time': evt['Date & Time'],
-                'Type': evt['Type'],
-                'Event': evt['Event'],
-            }))
+            // ─── Events-only sheet (descending) ─────────────────────────────────
+            const eventsOnlyRows = [...eventRows]
+                .sort((a, b) => b._ts - a._ts)
+                .map(evt => ({
+                    'Date & Time': evt['Date & Time'],
+                    'Type': evt['Type'],
+                    'Event': evt['Event'],
+                }))
             const wsEvents = utils.json_to_sheet(eventsOnlyRows)
             wsEvents['!cols'] = [
                 { wch: 28 }, { wch: 24 }, { wch: 60 }
