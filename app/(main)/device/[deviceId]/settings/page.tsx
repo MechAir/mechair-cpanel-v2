@@ -179,7 +179,7 @@ function EmsTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoom
   const cur = settings[activeRoom]
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/timings`, { settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
-    catch { setError('Failed to save.') } finally { setSaving(false) }
+    catch (_e) { setError('Failed to save.') } finally { setSaving(false) }
   }
 
   if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
@@ -394,8 +394,8 @@ const [assignments, setAssignments] = useState<Record<EmsRoomType, string>>(
 
   const persistRecipes = async (updated: Recipe[]) => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/recipes`, { recipes: updated }); setSaved(true); setTimeout(() => setSaved(false), 2000); return true }
-    catch { return false } finally { setSaving(false) }
-  }
+    catch (_e) { return false } finally { setSaving(false) }
+    }
 
   const saveAssignments = async () => {
     const payload = emsRooms.map(room => ({ roomId: EMS_ROOM_ID_MAP[room], recipeId: recipes.find(r => r.name === assignments[room])?.id ?? null }))
@@ -535,7 +535,7 @@ function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoom
   const cur = settings[activeRoom]
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/timings`, { settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
-    catch { setError('Failed to save.') } finally { setSaving(false) }
+    catch (_e) { setError('Failed to save.') } finally { setSaving(false) }
   }
 
   if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
@@ -749,7 +749,7 @@ function EmsLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
 
   const handleSave = async () => {
     try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/email-hooter-limits`, { limits: settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
-    catch { setError('Failed to save.') } finally { setSaving(false) }
+    catch (_e) { setError('Failed to save.') } finally { setSaving(false) }
   }
 
   if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
