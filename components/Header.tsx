@@ -52,7 +52,7 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
             try {
                 const now = Date.now()
                 const since = now - 24 * 60 * 60 * 1000 // last 24 hours
-                const res = await fetch(`${API_BASE}/devices/${deviceId}/events/range?from=${since}&to=${now}`)
+                const res = await fetch(`${API_BASE}/devices/${deviceId}/events/range?from=${new Date(since).toISOString()}&to=${new Date(now).toISOString()}`)
                 const data = await res.json()
                 const events = data.data?.events || data.data || []
                 const mapped = events.map((evt: any) => ({
