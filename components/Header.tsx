@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { getUser, logout, AuthUser } from '@/utils/auth'
+import { useIoT } from '@/utils/useIoT'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
 
@@ -36,51 +37,59 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
     const [showNotifications, setShowNotifications] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
-    // Load Notifications initially
+    // Track which notifications user has seen (timestamp of last open)
+    const [lastSeenTs, setLastSeenTs] = useState<number>(() => {
+        if (typeof window !== 'undefined') {
+            return parseInt(localStorage.getItem(`notif_seen_${deviceId}`) || '0', 10)
+        }
+        return 0
+    })
+
+    // Load recent events from Events API
     useEffect(() => {
-        console.log('Header.tsx deviceId is:', deviceId); // DEBUG
         if (!deviceId) return
-        const fetchNotifications = async () => {
+        const fetchEvents = async () => {
             try {
-                const res = await fetch(`${API_BASE}/devices/${deviceId}/notifications`)
+                const now = Date.now()
+                const since = now - 24 * 60 * 60 * 1000 // last 24 hours
+                const res = await fetch(`${API_BASE}/devices/${deviceId}/events/range?from=${since}&to=${now}`)
                 const data = await res.json()
-                if (data.success) {
-                    console.log('Fetched notifications:', data.data.length); // DEBUG
-                    setNotifications(data.data)
-                }
+                const events = data.data?.events || data.data || []
+                const mapped = events.map((evt: any) => ({
+                    _id: String(evt.timestamp || Date.now()) + Math.random(),
+                    type: evt.eventType || 'event',
+                    message: `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
+                    createdAt: typeof evt.timestamp === 'number' ? new Date(evt.timestamp).toISOString() : evt.timestamp,
+                    ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
+                    isRead: (typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime()) <= lastSeenTs,
+                }))
+                mapped.sort((a: any, b: any) => b.ts - a.ts)
+                setNotifications(mapped.slice(0, 50)) // cap at 50 latest
             } catch (err) {
-                console.error('Failed to fetch notifications:', err)
+                console.error('Failed to fetch events:', err)
             }
         }
-        fetchNotifications()
-    }, [deviceId])
+        fetchEvents()
+        const interval = setInterval(fetchEvents, 60000) // refresh every 60s
+        return () => clearInterval(interval)
+    }, [deviceId, lastSeenTs])
 
-    // SSE for Notifications
-    useEffect(() => {
-        if (!deviceId) return
-        const eventSource = new EventSource(`${API_BASE}/devices/${deviceId}/subscribe`)
-
-        eventSource.onmessage = (event) => {
-            const payload = JSON.parse(event.data)
-            if (payload.type === 'notification') {
-                // Prepend new notification
-                setNotifications(prev => [{
-                    _id: Date.now().toString(),
-                    deviceId: payload.deviceId,
-                    type: payload.activityType,
-                    message: payload.message,
-                    createdAt: payload.timestamp,
-                    isRead: false
-                }, ...prev])
+    // Live events via MQTT — new relay/settings changes appear instantly
+    useIoT(
+        deviceId ? [`devices/${deviceId}/events`] : [],
+        useCallback(({ payload }: any) => {
+            if (!payload) return
+            const newNotif = {
+                _id: String(payload.timestamp || Date.now()) + Math.random(),
+                type: payload.eventType || 'event',
+                message: `[${payload.source || 'system'}] ${payload.note || payload.eventType || ''}`,
+                createdAt: typeof payload.timestamp === 'number' ? new Date(payload.timestamp).toISOString() : payload.timestamp,
+                ts: typeof payload.timestamp === 'number' ? payload.timestamp : Date.now(),
+                isRead: false,
             }
-        }
-
-        eventSource.onerror = (e) => {
-            console.error('SSE Error in Header:', e)
-            // By default EventSource tries to reconnect. Don't close it!
-        }
-        return () => eventSource.close()
-    }, [deviceId])
+            setNotifications(prev => [newNotif, ...prev].slice(0, 50))
+        }, [])
+    )
 
     // Click outside to close notification dropdown
     useEffect(() => {
@@ -93,18 +102,18 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
         return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
-    const unreadCount = notifications.filter(n => !n.isRead).length // We can cap this or just show a dot
+    const unreadCount = notifications.filter(n => !n.isRead).length
 
-    const handleOpenNotifications = async () => {
+    const handleOpenNotifications = () => {
         setShowNotifications(!showNotifications)
-        // If opening and there are unread, mark them as read in DB and locally
+        // Mark all as read when opening
         if (!showNotifications && unreadCount > 0) {
-            try {
-                await fetch(`${API_BASE}/devices/${deviceId}/notifications/read`, { method: 'PUT' })
-                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
-            } catch (err) {
-                console.error('Failed to mark notifications read:', err)
+            const now = Date.now()
+            setLastSeenTs(now)
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(`notif_seen_${deviceId}`, String(now))
             }
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
         }
     }
 
@@ -180,6 +189,7 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
                                                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                         </svg>
+                                                        {new Date(notif.createdAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' })}{' '}
                                                         {new Date(notif.createdAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })}
                                                     </p>
                                                 </div>
