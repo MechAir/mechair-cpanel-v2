@@ -192,6 +192,7 @@ function EmsTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoom
           <SetpointRow label="C2H4 Trigger Diff:" value={cur.c2h4TriggerDiff} unit="ppm" step={0.1} min={0} max={50} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], c2h4TriggerDiff: parseFloat(v) || 0 } }))} />
           <SetpointRow label="CO2 Setpoint:" value={cur.co2Setpoint} unit="ppm" min={0} max={50000} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2Setpoint: parseFloat(v) || 0 } }))} />
           <SetpointRow label="CO2 Trigger Diff:" value={cur.co2TriggerDiff} unit="ppm" min={0} max={50000} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2TriggerDiff: parseFloat(v) || 0 } }))} />
+        </div>
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Timings</p>
           <TimingRow label="SOV Start Delay:" field={cur.sovStartDelay} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], sovStartDelay: { ...p[activeRoom].sovStartDelay, ...u } } }))} />
