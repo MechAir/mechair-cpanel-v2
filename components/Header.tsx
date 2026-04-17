@@ -69,8 +69,8 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
                 console.error('Failed to fetch events:', err)
             }
         }
-        fetchEvents()
-        const interval = setInterval(fetchEvents, 60000) // refresh every 60s
+       fetchEvents()
+        const interval = setInterval(fetchEvents, 15000) // refresh every 15s
         return () => clearInterval(interval)
     }, [deviceId, lastSeenTs])
 
@@ -105,7 +105,29 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
     const unreadCount = notifications.filter(n => !n.isRead).length
 
     const handleOpenNotifications = () => {
-        setShowNotifications(!showNotifications)
+        const opening = !showNotifications
+        setShowNotifications(opening)
+        // Re-fetch events when opening
+        if (opening && deviceId) {
+            const now = Date.now()
+            const since = now - 24 * 60 * 60 * 1000
+            fetch(`${API_BASE}/devices/${deviceId}/events/range?from=${new Date(since).toISOString()}&to=${new Date(now).toISOString()}`)
+                .then(r => r.json())
+                .then(data => {
+                    const events = data.data?.events || data.data || []
+                    const mapped = events.map((evt: any) => ({
+                        _id: String(evt.timestamp || Date.now()) + Math.random(),
+                        type: evt.eventType || 'event',
+                        message: `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
+                        createdAt: typeof evt.timestamp === 'number' ? new Date(evt.timestamp).toISOString() : evt.timestamp,
+                        ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
+                        isRead: (typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime()) <= lastSeenTs,
+                    }))
+                    mapped.sort((a: any, b: any) => b.ts - a.ts)
+                    setNotifications(mapped.slice(0, 50))
+                })
+                .catch(() => {})
+        }
         // Mark all as read when opening
         if (!showNotifications && unreadCount > 0) {
             const now = Date.now()
