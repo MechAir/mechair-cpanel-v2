@@ -78,14 +78,16 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
 }
 
 // ─── Shared field components ───────────────────────────────────────────────────
-function SetpointRow({ label, value, unit, step, onChange, readOnly }: {
-  label: string; value: number; unit: string; step?: number; onChange: (v: string) => void; readOnly?: boolean
+function SetpointRow({ label, value, unit, step, min, max, onChange, readOnly }: {
+  label: string; value: number; unit: string; step?: number; min?: number; max?: number; onChange: (v: string) => void; readOnly?: boolean
 }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
       <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">{label}</label>
       <div className="flex items-center gap-2">
-        <input type="number" step={step ?? 1} value={value} onChange={e => onChange(e.target.value)} readOnly={readOnly} disabled={readOnly}
+        <input type="number" step={step ?? 1} min={min} max={max} value={value}
+          onChange={e => { const v = parseFloat(e.target.value); if (min !== undefined && v < min) return; if (max !== undefined && v > max) return; onChange(e.target.value) }}
+          readOnly={readOnly} disabled={readOnly}
           className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
         <span className="bg-[#2B8DB8] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">{unit}</span>
       </div>
@@ -93,8 +95,8 @@ function SetpointRow({ label, value, unit, step, onChange, readOnly }: {
   )
 }
 
-function TimingRow({ label, field, onChange, wide, readOnly }: {
-  label: string; field: TimingField; onChange: (v: Partial<TimingField>) => void; wide?: boolean; readOnly?: boolean
+function TimingRow({ label, field, onChange, wide, readOnly, max }: {
+  label: string; field: TimingField; onChange: (v: Partial<TimingField>) => void; wide?: boolean; readOnly?: boolean; max?: number
 }) {
   const [open, setOpen] = useState(false)
   const units: TimeUnit[] = ['sec', 'min', 'hr']
@@ -102,7 +104,9 @@ function TimingRow({ label, field, onChange, wide, readOnly }: {
     <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
       <label className={`text-gray-700 text-sm sm:text-base font-medium sm:shrink-0 ${wide ? 'sm:w-56' : 'sm:w-48'}`}>{label}</label>
       <div className="flex items-center gap-2">
-        <input type="number" min={0} value={field.value} onChange={e => onChange({ value: e.target.value === '' ? 0 : parseFloat(e.target.value) })} readOnly={readOnly} disabled={readOnly}
+        <input type="number" min={0} max={max ?? 999} value={field.value}
+          onChange={e => { const v = parseFloat(e.target.value); if (v < 0 || v > (max ?? 999)) return; onChange({ value: e.target.value === '' ? 0 : v }) }}
+          readOnly={readOnly} disabled={readOnly}
           className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
         <div className="relative">
           <button type="button" onClick={() => !readOnly && setOpen(o => !o)} onBlur={() => setTimeout(() => setOpen(false), 150)} disabled={readOnly}
@@ -185,10 +189,9 @@ function EmsTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoom
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-5">
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Setpoints</p>
-          <SetpointRow label="C2H4 Trigger Diff:" value={cur.c2h4TriggerDiff} unit="ppm" step={0.1} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], c2h4TriggerDiff: parseFloat(v) || 0 } }))} />
-          <SetpointRow label="CO2 Setpoint:" value={cur.co2Setpoint} unit="ppm" readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2Setpoint: parseFloat(v) || 0 } }))} />
-          <SetpointRow label="CO2 Trigger Diff:" value={cur.co2TriggerDiff} unit="ppm" readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2TriggerDiff: parseFloat(v) || 0 } }))} />
-        </div>
+          <SetpointRow label="C2H4 Trigger Diff:" value={cur.c2h4TriggerDiff} unit="ppm" step={0.1} min={0} max={50} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], c2h4TriggerDiff: parseFloat(v) || 0 } }))} />
+          <SetpointRow label="CO2 Setpoint:" value={cur.co2Setpoint} unit="ppm" min={0} max={50000} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2Setpoint: parseFloat(v) || 0 } }))} />
+          <SetpointRow label="CO2 Trigger Diff:" value={cur.co2TriggerDiff} unit="ppm" min={0} max={50000} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], co2TriggerDiff: parseFloat(v) || 0 } }))} />
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Timings</p>
           <TimingRow label="SOV Start Delay:" field={cur.sovStartDelay} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], sovStartDelay: { ...p[activeRoom].sovStartDelay, ...u } } }))} />
@@ -793,12 +796,12 @@ function EmsLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
         {/* ── Right: Gas Limits ── */}
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">C₂H₄ Limits</p>
-          <SetpointRow label="C₂H₄ High Limit:" value={cur.c2h4High} unit="ppm" step={0.1} readOnly={readOnly} onChange={v => update({ c2h4High: parseFloat(v) || 0 })} />
-          <SetpointRow label="C₂H₄ Low Limit:" value={cur.c2h4Low} unit="ppm" step={0.1} readOnly={readOnly} onChange={v => update({ c2h4Low: parseFloat(v) || 0 })} />
+          <SetpointRow label="C₂H₄ High Limit:" value={cur.c2h4High} unit="ppm" step={0.1} min={0} max={1000} readOnly={readOnly} onChange={v => update({ c2h4High: parseFloat(v) || 0 })} />
+          <SetpointRow label="C₂H₄ Low Limit:" value={cur.c2h4Low} unit="ppm" step={0.1} min={0} max={1000} readOnly={readOnly} onChange={v => update({ c2h4Low: parseFloat(v) || 0 })} />
 
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">CO₂ Limits</p>
-          <SetpointRow label="CO₂ High Limit:" value={cur.co2High} unit="ppm" readOnly={readOnly} onChange={v => update({ co2High: parseFloat(v) || 0 })} />
-          <SetpointRow label="CO₂ Low Limit:" value={cur.co2Low} unit="ppm" readOnly={readOnly} onChange={v => update({ co2Low: parseFloat(v) || 0 })} />
+          <SetpointRow label="CO₂ High Limit:" value={cur.co2High} unit="ppm" min={0} max={50000} readOnly={readOnly} onChange={v => update({ co2High: parseFloat(v) || 0 })} />
+          <SetpointRow label="CO₂ Low Limit:" value={cur.co2Low} unit="ppm" min={0} max={50000} readOnly={readOnly} onChange={v => update({ co2Low: parseFloat(v) || 0 })} />
         </div>
       </div>
 
