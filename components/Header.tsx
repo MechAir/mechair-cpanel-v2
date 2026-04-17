@@ -88,24 +88,8 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
                 const now = Date.now()
                 const newNotifs: any[] = []
 
-                // Detect mode change using ref to track last known mode
-                if (mode && mode !== lastKnownMode.current) {
-                    const prevMode = lastKnownMode.current
-                    lastKnownMode.current = mode
-                    if (prevMode) {
-                        const modeNotif = {
-                            _id: `mode-${now}-${Math.random()}`,
-                            type: 'mode_change',
-                            message: `[device] Mode changed: ${prevMode} → ${mode}`,
-                            createdAt: new Date(now).toISOString(),
-                            ts: now,
-                            isRead: false,
-                        }
-                        setNotifications(prev => [modeNotif, ...prev].slice(0, 50))
-                    } else {
-                        lastKnownMode.current = mode
-                    }
-                }
+                // Track current mode (used by other components)
+                if (mode) lastKnownMode.current = mode
 
                 // Check relay changes per room
                 for (const r of rooms) {
@@ -156,6 +140,27 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
             }
         }, [])
     )
+
+    // Listen for mode changes from rooms page
+    useEffect(() => {
+        const handler = (e: any) => {
+            const { from, to } = e.detail || {}
+            if (from && to) {
+                const now = Date.now()
+                const modeNotif = {
+                    _id: `mode-${now}-${Math.random()}`,
+                    type: 'mode_change',
+                    message: `[frontend] Mode changed: ${from} → ${to}`,
+                    createdAt: new Date(now).toISOString(),
+                    ts: now,
+                    isRead: false,
+                }
+                setNotifications(prev => [modeNotif, ...prev].slice(0, 50))
+            }
+        }
+        window.addEventListener('mechair-mode-change', handler)
+        return () => window.removeEventListener('mechair-mode-change', handler)
+    }, [])
 
     // Click outside to close notification dropdown
     useEffect(() => {
