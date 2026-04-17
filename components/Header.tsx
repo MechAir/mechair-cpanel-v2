@@ -36,6 +36,7 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
     const [notifications, setNotifications] = useState<any[]>([])
     const [showNotifications, setShowNotifications] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
+    const lastKnownMode = useRef<string>('')
 
     // Track which notifications user has seen (timestamp of last open)
     const [lastSeenTs, setLastSeenTs] = useState<number>(() => {
@@ -87,25 +88,23 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
                 const now = Date.now()
                 const newNotifs: any[] = []
 
-                // Detect mode change
-                if (mode) {
-                    setNotifications(prev => {
-                        // Check if latest notification already shows this mode
-                        const lastModeNotif = prev.find(n => n.type === 'mode_change')
-                        const lastMode = lastModeNotif?.message?.includes('auto') ? 'auto' : lastModeNotif?.message?.includes('manual') ? 'manual' : ''
-                        if (lastMode !== mode) {
-                            const modeNotif = {
-                                _id: `mode-${now}-${Math.random()}`,
-                                type: 'mode_change',
-                                message: `[device] Mode changed: ${lastMode || '?'} → ${mode}`,
-                                createdAt: new Date(now).toISOString(),
-                                ts: now,
-                                isRead: false,
-                            }
-                            return [modeNotif, ...prev].slice(0, 50)
+                // Detect mode change using ref to track last known mode
+                if (mode && mode !== lastKnownMode.current) {
+                    const prevMode = lastKnownMode.current
+                    lastKnownMode.current = mode
+                    if (prevMode) {
+                        const modeNotif = {
+                            _id: `mode-${now}-${Math.random()}`,
+                            type: 'mode_change',
+                            message: `[device] Mode changed: ${prevMode} → ${mode}`,
+                            createdAt: new Date(now).toISOString(),
+                            ts: now,
+                            isRead: false,
                         }
-                        return prev
-                    })
+                        setNotifications(prev => [modeNotif, ...prev].slice(0, 50))
+                    } else {
+                        lastKnownMode.current = mode
+                    }
                 }
 
                 // Check relay changes per room
