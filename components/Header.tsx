@@ -87,6 +87,27 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
                 const now = Date.now()
                 const newNotifs: any[] = []
 
+                // Detect mode change
+                if (mode) {
+                    setNotifications(prev => {
+                        // Check if latest notification already shows this mode
+                        const lastModeNotif = prev.find(n => n.type === 'mode_change')
+                        const lastMode = lastModeNotif?.message?.includes('auto') ? 'auto' : lastModeNotif?.message?.includes('manual') ? 'manual' : ''
+                        if (lastMode !== mode) {
+                            const modeNotif = {
+                                _id: `mode-${now}-${Math.random()}`,
+                                type: 'mode_change',
+                                message: `[device] Mode changed: ${lastMode || '?'} → ${mode}`,
+                                createdAt: new Date(now).toISOString(),
+                                ts: now,
+                                isRead: false,
+                            }
+                            return [modeNotif, ...prev].slice(0, 50)
+                        }
+                        return prev
+                    })
+                }
+
                 // Check relay changes per room
                 for (const r of rooms) {
                     const roomName = r.name || `Room ${r.id || '?'}`
