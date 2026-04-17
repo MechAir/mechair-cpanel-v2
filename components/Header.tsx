@@ -139,6 +139,7 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
     // Listen for mode changes from rooms page (frontend-initiated)
     useEffect(() => {
         const handler = (e: any) => {
+            console.log('🔔 mechair-mode-change received:', e.detail)
             const { from, to } = e.detail || {}
             if (from && to) {
                 const now = Date.now()
