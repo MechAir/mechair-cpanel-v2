@@ -65,7 +65,13 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
                 isRead: (typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime()) <= lastSeenTs,
             }))
             mapped.sort((a: any, b: any) => b.ts - a.ts)
-            setNotifications(mapped.slice(0, 50))
+            // Merge: keep client-injected notifications (mode_change) that aren't in the fetched set
+            setNotifications(prev => {
+                const fetchedIds = new Set(mapped.map((n: any) => n.type + n.ts))
+                const clientOnly = prev.filter(n => n.type === 'mode_change' && !fetchedIds.has(n.type + n.ts) && (Date.now() - n.ts) < 60000)
+                const merged = [...clientOnly, ...mapped].sort((a: any, b: any) => b.ts - a.ts)
+                return merged.slice(0, 50)
+            })
         } catch (_err) {
             console.error('Failed to fetch events:', _err)
         }
