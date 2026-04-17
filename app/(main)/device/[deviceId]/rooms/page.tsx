@@ -673,7 +673,6 @@ export default function DeviceRoomsPage() {
       })
 pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newMode === 'auto' ? 'Auto' : 'Manual'} mode.` })
       window.dispatchEvent(new CustomEvent('mechair-mode-change', { detail: { from: isAuto ? 'auto' : 'manual', to: newMode } }))
-      window.dispatchEvent(new CustomEvent('mechair-mode-change', { detail: { from: isAuto ? 'auto' : 'manual', to: newMode } }))
     } catch (_e) { pushToast({ type: 'error', title: 'Mode Change Failed', message: 'Please try again.' }); setIsAuto(isAuto) }
   }
 
