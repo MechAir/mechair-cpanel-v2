@@ -28,7 +28,6 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true }: HeaderProps) {
-    console.log('HEADER_V2_LOADED')
     const [user, setUser] = useState<AuthUser | null>(null)
     const params = useParams()
     const deviceId = params?.deviceId as string
