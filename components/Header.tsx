@@ -46,102 +46,96 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
         return 0
     })
 
-    // Load recent events from Events API
-    useEffect(() => {
+    // Fetch events helper
+    const fetchEvents = useCallback(async () => {
         if (!deviceId) return
-        const fetchEvents = async () => {
-            try {
-                const now = Date.now()
-                const since = now - 24 * 60 * 60 * 1000 // last 24 hours
-                const res = await fetch(`${API_BASE}/devices/${deviceId}/events/range?from=${new Date(since).toISOString()}&to=${new Date(now).toISOString()}`)
-                const data = await res.json()
-                const events = data.data?.events || data.data || []
-                const mapped = events.map((evt: any) => ({
-                    _id: String(evt.timestamp || Date.now()) + Math.random(),
-                    type: evt.eventType || 'event',
-                    message: `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
-                    createdAt: typeof evt.timestamp === 'number' ? new Date(evt.timestamp).toISOString() : evt.timestamp,
-                    ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
-                    isRead: (typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime()) <= lastSeenTs,
-                }))
-                mapped.sort((a: any, b: any) => b.ts - a.ts)
-                setNotifications(mapped.slice(0, 50)) // cap at 50 latest
-            } catch (err) {
-                console.error('Failed to fetch events:', err)
-            }
+        try {
+            const now = Date.now()
+            const since = now - 24 * 60 * 60 * 1000
+            const res = await fetch(`${API_BASE}/devices/${deviceId}/events/range?from=${new Date(since).toISOString()}&to=${new Date(now).toISOString()}`)
+            const data = await res.json()
+            const events = data.data?.events || data.data || []
+            const mapped = events.map((evt: any) => ({
+                _id: String(evt.timestamp || Date.now()) + Math.random(),
+                type: evt.eventType || 'event',
+                message: `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
+                createdAt: typeof evt.timestamp === 'number' ? new Date(evt.timestamp).toISOString() : evt.timestamp,
+                ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
+                isRead: (typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime()) <= lastSeenTs,
+            }))
+            mapped.sort((a: any, b: any) => b.ts - a.ts)
+            setNotifications(mapped.slice(0, 50))
+        } catch (_err) {
+            console.error('Failed to fetch events:', _err)
         }
-       fetchEvents()
-        const interval = setInterval(fetchEvents, 15000) // refresh every 15s
-        return () => clearInterval(interval)
     }, [deviceId, lastSeenTs])
 
-    // Live updates via MQTT — relay changes + mode switches appear instantly
+    // Load recent events on mount + poll every 15s
+    useEffect(() => {
+        if (!deviceId) return
+        fetchEvents()
+        const interval = setInterval(fetchEvents, 15000)
+        return () => clearInterval(interval)
+    }, [deviceId, fetchEvents])
+
+    // Live updates via MQTT — relay changes appear instantly
     useIoT(
-        deviceId ? [`devices/${deviceId}/state`, `devices/${deviceId}/events`] : [],
-        useCallback(({ topic, payload }: any) => {
+        deviceId ? [`devices/${deviceId}/state`] : [],
+        useCallback(({ payload }: any) => {
             if (!payload) return
+            const rooms = payload.rooms || []
+            const mode = payload.mode
+            const now = Date.now()
+            const newNotifs: any[] = []
 
-            // State topic — detect relay changes and mode switches
-            if (topic?.endsWith('/state')) {
-                const rooms = payload.rooms || []
-                const mode = payload.mode
-                const now = Date.now()
-                const newNotifs: any[] = []
+            // Detect mode change
+            if (mode && lastKnownMode.current && mode !== lastKnownMode.current) {
+                newNotifs.push({
+                    _id: `mode-${now}-${Math.random()}`,
+                    type: 'mode_change',
+                    message: `[device] Mode changed: ${lastKnownMode.current} → ${mode}`,
+                    createdAt: new Date(now).toISOString(),
+                    ts: now,
+                    isRead: false,
+                })
+            }
+            if (mode) lastKnownMode.current = mode
 
-                // Track current mode (used by other components)
-                if (mode) lastKnownMode.current = mode
-
-                // Check relay changes per room
-                for (const r of rooms) {
-                    const roomName = r.name || `Room ${r.id || '?'}`
-                    const relays = [
-                        { key: 'sov', alt: 'sovOn', label: 'SOV' },
-                        { key: 'exh', alt: 'exhOn', label: 'Exhaust' },
-                        { key: 'pump', alt: 'pumpOn', label: 'Pump' },
-                    ]
-                    for (const relay of relays) {
-                        const val = r[relay.key] ?? r[relay.alt]
-                        if (val !== undefined) {
-                            const msg = `${roomName} ${relay.label} ${val ? 'ON' : 'OFF'}`
-                            newNotifs.push({
-                                _id: `${now}-${relay.key}-${Math.random()}`,
-                                type: 'relay_change',
-                                message: `[device] ${msg}`,
-                                createdAt: new Date(now).toISOString(),
-                                ts: now,
-                                isRead: false,
-                            })
-                        }
+            // Check relay changes per room
+            for (const r of rooms) {
+                const roomName = r.name || `Room ${r.id || '?'}`
+                const relays = [
+                    { key: 'sov', alt: 'sovOn', label: 'SOV' },
+                    { key: 'exh', alt: 'exhOn', label: 'Exhaust' },
+                    { key: 'pump', alt: 'pumpOn', label: 'Pump' },
+                ]
+                for (const relay of relays) {
+                    const val = r[relay.key] ?? r[relay.alt]
+                    if (val !== undefined) {
+                        const msg = `${roomName} ${relay.label} ${val ? 'ON' : 'OFF'}`
+                        newNotifs.push({
+                            _id: `${now}-${relay.key}-${Math.random()}`,
+                            type: 'relay_change',
+                            message: `[device] ${msg}`,
+                            createdAt: new Date(now).toISOString(),
+                            ts: now,
+                            isRead: false,
+                        })
                     }
                 }
-
-                if (newNotifs.length > 0) {
-                    // Deduplicate — only add if the message differs from the latest notification
-                    setNotifications(prev => {
-                        const lastMsg = prev[0]?.message || ''
-                        const unique = newNotifs.filter(n => n.message !== lastMsg)
-                        return unique.length > 0 ? [...unique, ...prev].slice(0, 50) : prev
-                    })
-                }
-                return
             }
 
-            // Events topic — direct event from Lambda
-            if (topic?.endsWith('/events')) {
-                const newNotif = {
-                    _id: String(payload.timestamp || Date.now()) + Math.random(),
-                    type: payload.eventType || 'event',
-                    message: `[${payload.source || 'system'}] ${payload.note || payload.eventType || ''}`,
-                    createdAt: typeof payload.timestamp === 'number' ? new Date(payload.timestamp).toISOString() : payload.timestamp,
-                    ts: typeof payload.timestamp === 'number' ? payload.timestamp : Date.now(),
-                    isRead: false,
-                }
-                setNotifications(prev => [newNotif, ...prev].slice(0, 50))
+            if (newNotifs.length > 0) {
+                setNotifications(prev => {
+                    const lastMsg = prev[0]?.message || ''
+                    const unique = newNotifs.filter(n => n.message !== lastMsg)
+                    return unique.length > 0 ? [...unique, ...prev].slice(0, 50) : prev
+                })
             }
         }, [])
     )
 
-    // Listen for mode changes from rooms page
+    // Listen for mode changes from rooms page (frontend-initiated)
     useEffect(() => {
         const handler = (e: any) => {
             const { from, to } = e.detail || {}
@@ -156,6 +150,7 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
                     isRead: false,
                 }
                 setNotifications(prev => [modeNotif, ...prev].slice(0, 50))
+                lastKnownMode.current = to
             }
         }
         window.addEventListener('mechair-mode-change', handler)
@@ -179,28 +174,9 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
         const opening = !showNotifications
         setShowNotifications(opening)
         // Re-fetch events when opening
-        if (opening && deviceId) {
-            const now = Date.now()
-            const since = now - 24 * 60 * 60 * 1000
-            fetch(`${API_BASE}/devices/${deviceId}/events/range?from=${new Date(since).toISOString()}&to=${new Date(now).toISOString()}`)
-                .then(r => r.json())
-                .then(data => {
-                    const events = data.data?.events || data.data || []
-                    const mapped = events.map((evt: any) => ({
-                        _id: String(evt.timestamp || Date.now()) + Math.random(),
-                        type: evt.eventType || 'event',
-                        message: `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
-                        createdAt: typeof evt.timestamp === 'number' ? new Date(evt.timestamp).toISOString() : evt.timestamp,
-                        ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
-                        isRead: (typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime()) <= lastSeenTs,
-                    }))
-                    mapped.sort((a: any, b: any) => b.ts - a.ts)
-                    setNotifications(mapped.slice(0, 50))
-                })
-                .catch(() => {})
-        }
+        if (opening && deviceId) fetchEvents()
         // Mark all as read when opening
-        if (!showNotifications && unreadCount > 0) {
+        if (opening && unreadCount > 0) {
             const now = Date.now()
             setLastSeenTs(now)
             if (typeof window !== 'undefined') {
