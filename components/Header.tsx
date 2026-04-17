@@ -74,20 +74,66 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
         return () => clearInterval(interval)
     }, [deviceId, lastSeenTs])
 
-    // Live events via MQTT — new relay/settings changes appear instantly
+    // Live updates via MQTT — relay changes + mode switches appear instantly
     useIoT(
-        deviceId ? [`devices/${deviceId}/events`] : [],
-        useCallback(({ payload }: any) => {
+        deviceId ? [`devices/${deviceId}/state`, `devices/${deviceId}/events`] : [],
+        useCallback(({ topic, payload }: any) => {
             if (!payload) return
-            const newNotif = {
-                _id: String(payload.timestamp || Date.now()) + Math.random(),
-                type: payload.eventType || 'event',
-                message: `[${payload.source || 'system'}] ${payload.note || payload.eventType || ''}`,
-                createdAt: typeof payload.timestamp === 'number' ? new Date(payload.timestamp).toISOString() : payload.timestamp,
-                ts: typeof payload.timestamp === 'number' ? payload.timestamp : Date.now(),
-                isRead: false,
+
+            // State topic — detect relay changes and mode switches
+            if (topic?.endsWith('/state')) {
+                const rooms = payload.rooms || []
+                const mode = payload.mode
+                const now = Date.now()
+                const newNotifs: any[] = []
+
+                // Check relay changes per room
+                for (const r of rooms) {
+                    const roomName = r.name || `Room ${r.id || '?'}`
+                    const relays = [
+                        { key: 'sov', alt: 'sovOn', label: 'SOV' },
+                        { key: 'exh', alt: 'exhOn', label: 'Exhaust' },
+                        { key: 'pump', alt: 'pumpOn', label: 'Pump' },
+                    ]
+                    for (const relay of relays) {
+                        const val = r[relay.key] ?? r[relay.alt]
+                        if (val !== undefined) {
+                            const msg = `${roomName} ${relay.label} ${val ? 'ON' : 'OFF'}`
+                            newNotifs.push({
+                                _id: `${now}-${relay.key}-${Math.random()}`,
+                                type: 'relay_change',
+                                message: `[device] ${msg}`,
+                                createdAt: new Date(now).toISOString(),
+                                ts: now,
+                                isRead: false,
+                            })
+                        }
+                    }
+                }
+
+                if (newNotifs.length > 0) {
+                    // Deduplicate — only add if the message differs from the latest notification
+                    setNotifications(prev => {
+                        const lastMsg = prev[0]?.message || ''
+                        const unique = newNotifs.filter(n => n.message !== lastMsg)
+                        return unique.length > 0 ? [...unique, ...prev].slice(0, 50) : prev
+                    })
+                }
+                return
             }
-            setNotifications(prev => [newNotif, ...prev].slice(0, 50))
+
+            // Events topic — direct event from Lambda
+            if (topic?.endsWith('/events')) {
+                const newNotif = {
+                    _id: String(payload.timestamp || Date.now()) + Math.random(),
+                    type: payload.eventType || 'event',
+                    message: `[${payload.source || 'system'}] ${payload.note || payload.eventType || ''}`,
+                    createdAt: typeof payload.timestamp === 'number' ? new Date(payload.timestamp).toISOString() : payload.timestamp,
+                    ts: typeof payload.timestamp === 'number' ? payload.timestamp : Date.now(),
+                    isRead: false,
+                }
+                setNotifications(prev => [newNotif, ...prev].slice(0, 50))
+            }
         }, [])
     )
 
