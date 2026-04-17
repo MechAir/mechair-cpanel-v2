@@ -188,19 +188,15 @@ function EmsRoomCard({ room, isManual, hasPendingSov, hasPendingExh, hasPendingC
           </button>
         </div>
       )}
-      {!isManual && (
-        <>
-          <div className="flex gap-2">
-            <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.sovOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/40'}`}>SOV {room.sovOn ? 'ON' : 'OFF'}</span>
-            <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.exhOn ? 'bg-orange-500/40 text-orange-200' : 'bg-white/10 text-white/40'}`}>Exhaust {room.exhOn ? 'ON' : 'OFF'}</span>
-            <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.pumpOn ? 'bg-cyan-500/40 text-cyan-200' : 'bg-white/10 text-white/40'}`}>Pump {room.pumpOn ? 'ON' : 'OFF'}</span>
-          </div>
-          <div className="flex gap-2 mt-2">
-            <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.hxOn ? 'bg-purple-500/40 text-purple-200' : 'bg-white/10 text-white/40'}`}>Heat Exchanger {room.hxOn ? 'ON' : 'OFF'}</span>
-            <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.pfOn ? 'bg-yellow-500/40 text-yellow-200' : 'bg-white/10 text-white/40'}`}>Pressure Fan {room.pfOn ? 'ON' : 'OFF'}</span>
-          </div>
-        </>
-      )}
+      <div className="flex gap-2 mt-2">
+        <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.sovOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/40'}`}>SOV {room.sovOn ? 'ON' : 'OFF'}</span>
+        <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.exhOn ? 'bg-orange-500/40 text-orange-200' : 'bg-white/10 text-white/40'}`}>Exhaust {room.exhOn ? 'ON' : 'OFF'}</span>
+        <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.pumpOn ? 'bg-cyan-500/40 text-cyan-200' : 'bg-white/10 text-white/40'}`}>Pump {room.pumpOn ? 'ON' : 'OFF'}</span>
+      </div>
+      <div className="flex gap-2 mt-2">
+        <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.hxOn ? 'bg-purple-500/40 text-purple-200' : 'bg-white/10 text-white/40'}`}>Heat Exchanger {room.hxOn ? 'ON' : 'OFF'}</span>
+        <span className={`flex-1 py-1.5 rounded-lg text-xs font-semibold text-center ${room.pfOn ? 'bg-yellow-500/40 text-yellow-200' : 'bg-white/10 text-white/40'}`}>Pressure Fan {room.pfOn ? 'ON' : 'OFF'}</span>
+      </div>
     </div>
   )
 }
