@@ -543,7 +543,7 @@ export default function DeviceRoomsPage() {
         // Ignore mode echoes for 5s after the user just toggled — prevents stale
         // device state from snapping the UI back. The firmware will eventually
         // publish the correct mode and at that point we accept it again.
-        if (payload.mode && Date.now() - lastModeChangeAt.current > 5000) {
+        if (payload.mode && Date.now() - lastModeChangeAt.current > 2000) {
           setIsAuto(payload.mode === 'auto')
         }
       }
