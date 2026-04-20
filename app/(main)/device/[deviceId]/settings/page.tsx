@@ -567,8 +567,29 @@ function MlhManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomT
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   useEffect(() => {
-    apiGet<{ manualSettings: Record<MlhRoomType, MlhManualSettings> }>(`/devices/${deviceId}/settings/manual-timings`)
-      .then(data => { if (data?.manualSettings) setSettings(prev => ({ ...prev, ...data.manualSettings })) })
+    apiGet<{ manualSettings: Record<string, any> }>(`/devices/${deviceId}/settings/manual-timings`)
+      .then(data => {
+        if (data?.manualSettings) {
+          setSettings(prev => {
+            const updated = { ...prev }
+            mlhRooms.forEach(room => {
+              const raw = data.manualSettings[room]
+              if (raw) {
+                updated[room] = {
+                  manualCompressorOnTime: raw.manualCompressorOnValue !== undefined
+                    ? { value: raw.manualCompressorOnValue, unit: (['sec','min','hr'] as const)[raw.manualCompressorOnUnit ?? 0] }
+                    : raw.manualCompressorOnTime ?? prev[room].manualCompressorOnTime,
+                  manualSovOnTime: raw.manualSovOnValue !== undefined
+                    ? { value: raw.manualSovOnValue, unit: (['sec','min','hr'] as const)[raw.manualSovOnUnit ?? 0] }
+                    : raw.manualSovOnTime ?? prev[room].manualSovOnTime,
+                }
+              }
+            })
+            return updated
+          })
+        }
+      })
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [deviceId])
 
