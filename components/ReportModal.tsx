@@ -830,8 +830,10 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 { 'Field': 'Report Range', 'Value': rangeLabel },
                 { 'Field': 'Readings (rows)', 'Value': fetchedReadings.length },
                 { 'Field': 'Events Logged', 'Value': eventRows.length },
-                { 'Field': 'CO₂ Triggered Readings', 'Value': co2TrigCount },
-                { 'Field': 'C₂H₄ Triggered Readings', 'Value': c2h4TrigCount },
+                ...(!isMlh ? [
+                    { 'Field': 'CO₂ Triggered Readings', 'Value': co2TrigCount },
+                    { 'Field': 'C₂H₄ Triggered Readings', 'Value': c2h4TrigCount },
+                ] : []),
                 { 'Field': 'Generated', 'Value': formatFullDate(new Date().toISOString()) },
                 { 'Field': 'Platform', 'Value': 'Mech Air IoT Platform' },
             ]
