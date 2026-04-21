@@ -374,6 +374,7 @@ export default function DeviceRoomsPage() {
   const [pendingRelay1, setPendingRelay1] = useState<Record<string, boolean>>({})
   const [pendingRelay2, setPendingRelay2] = useState<Record<string, boolean>>({})
   const [pendingResetChanges, setPendingResetChanges] = useState<Record<string, Partial<RoomData>>>({})
+  const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
 
   const user = getUser()
   const canEditWifi = user?.role === 'owner' || user?.role === 'admin'
@@ -454,6 +455,17 @@ export default function DeviceRoomsPage() {
 
         if (readingData.success && readingData.data?.reading) {
           fetchedRooms = applyReadingToRooms(fetchedRooms, readingData.data.reading)
+        }
+
+        // Fetch enabled rooms for MLH devices
+        if (isMlh) {
+          try {
+            const erRes = await fetch(`${API_BASE}/devices/${deviceId}/settings/enabled-rooms`)
+            const erData = await erRes.json()
+            if (erData.success && erData.data?.enabledRooms) {
+              setEnabledRooms(erData.data.enabledRooms)
+            }
+          } catch (_e) {}
         }
 
         // // ── TEMP MOCK DATA — remove once ESP32 sends real recipe status ──
@@ -847,7 +859,12 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
 
         {/* Rooms Grid — EMS: 2 cols, MLH: 3 cols */}
         <div className={`grid ${gridCols} gap-4 sm:gap-6 max-w-6xl`}>
-          {displayRooms.map(room => (
+          {displayRooms.filter(room => {
+            if (!isMlh || Object.keys(enabledRooms).length === 0) return true
+            const roomKey = `Room ${room.id.replace('room-', '')}`
+            const rKey = `r${room.id.replace('room-', '')}`
+            return enabledRooms[roomKey] !== false && enabledRooms[rKey] !== false
+          }).map(room => (
             <div key={room.id} onClick={() => handleRoomClick(room.id)} className={isAuto && canEditRooms ? 'cursor-pointer' : 'cursor-default'}>
               {isMlh ? (
                 <MlhRoomCard room={room} isManual={!isAuto}
