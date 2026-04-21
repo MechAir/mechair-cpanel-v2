@@ -1265,6 +1265,7 @@ export default function DetailedGraphsPage() {
   const [liveStatus, setLiveStatus] = useState<'connecting' | 'ok' | 'error'>('connecting')
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
+  const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   
   // Track live relay states from /state topic so trigger bands appear on graphs
   const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
@@ -1273,6 +1274,15 @@ export default function DetailedGraphsPage() {
     if (localStorage.getItem('isAuthenticated') !== 'true') router.push('/')
     else setIsAuthenticated(true)
   }, [router])
+
+  // Fetch enabled rooms for MLH
+  useEffect(() => {
+    if (getDeviceType(deviceId).prefix !== 'mlh') return
+    fetch(`${API_BASE}/devices/${deviceId}/settings/enabled-rooms`)
+      .then(r => r.json())
+      .then(data => { if (data.success && data.data?.enabledRooms) setEnabledRooms(data.data.enabledRooms) })
+      .catch(() => {})
+  }, [deviceId])
 
   // ── IoT WebSocket live mode ───────────────────────────────────────────────
   // Subscribe to the device's readings topic. We always subscribe (rules of hooks),
@@ -1585,9 +1595,13 @@ export default function DetailedGraphsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <div className="flex gap-1.5 sm:gap-2">
-            {Array.from({ length: getDeviceType(deviceId).rooms }, (_, i) => String(i + 1)).map(id => (
+        <div className="flex gap-1.5 sm:gap-2">
+            {Array.from({ length: getDeviceType(deviceId).rooms }, (_, i) => String(i + 1))
+              .filter(id => {
+                if (getDeviceType(deviceId).prefix !== 'mlh') return true
+                return enabledRooms[`Room ${id}`] !== false && enabledRooms[`r${id}`] !== false
+              })
+              .map(id => (
               <button key={id}
                 onClick={() => router.push(`/device/${deviceId}/room/${id}/graphs/detailed`)}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200
