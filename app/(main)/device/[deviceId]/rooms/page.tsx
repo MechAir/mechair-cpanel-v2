@@ -675,7 +675,7 @@ export default function DeviceRoomsPage() {
     try {
       await fetch(`${API_BASE}/devices/${deviceId}/state`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: newMode })
+        body: JSON.stringify({ mode: newMode, rooms: rooms })
       })
 pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newMode === 'auto' ? 'Auto' : 'Manual'} mode.` })
       window.dispatchEvent(new CustomEvent('mechair-mode-change', { detail: { from: isAuto ? 'auto' : 'manual', to: newMode } }))
