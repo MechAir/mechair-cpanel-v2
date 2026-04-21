@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { getDeviceType } from '@/utils/deviceTypes'
 
 interface RangeReading {
     timestamp: string
@@ -264,6 +265,15 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
         C2H4: useRef<HTMLCanvasElement>(null),
     }
 
+    // Filter metrics based on device type
+    const dt = getDeviceType(deviceId)
+    const isMlh = dt.prefix === 'mlh'
+    const visibleMetrics = METRICS.filter(m => {
+        if (isMlh) return m.key === 'temp' || m.key === 'O2' // O2 = Humidity for MLH
+        return true
+    })
+    const visibleMetricKeys = visibleMetrics.map(m => m.key) as MetricKey[]
+
     const fetchData = useCallback(async () => {
         setLoading(true); setError(''); setPreviewData(null)
         try {
@@ -381,7 +391,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             ['CO2', previewData.co2, previewData.triggersCO2],
             ['O2', previewData.o2, noTriggers],
             ['C2H4', previewData.c2h4, previewData.triggersC2H4],
-        ]
+        ].filter(([key]) => visibleMetricKeys.includes(key as MetricKey)) as [MetricKey, number[], boolean[]][]
         entries.forEach(([key, data, triggers]) => {
             const meta = METRICS.find(m => m.key === key)!
             const canvas = canvasRefs[key].current
@@ -479,8 +489,8 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             doc.setTextColor(30, 58, 138); doc.setFontSize(11); doc.setFont('helvetica', 'bold')
             doc.text('Metric Graphs', 14, startY - 2)
 
-            const chartPairs: MetricKey[] = ['temp', 'CO2', 'O2', 'C2H4']
-            for (let idx = 0; idx < 4; idx++) {
+            const chartPairs: MetricKey[] = visibleMetricKeys
+            for (let idx = 0; idx < chartPairs.length; idx++) {
                 const key = chartPairs[idx]
                 const canvas = canvasRefs[key].current
                 if (!canvas) continue
@@ -501,7 +511,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             doc.text('Statistical Summary', 14, tableY)
 
             const pd = previewData as any
-            const tableRows = METRICS.map(m => {
+            const tableRows = visibleMetrics.map(m => {
                 const vals = m.key === 'temp' ? (pd._fullTemp ?? previewData.temp)
                     : m.key === 'CO2' ? (pd._fullCO2 ?? previewData.co2)
                         : m.key === 'O2' ? (pd._fullO2 ?? previewData.o2)
@@ -696,17 +706,18 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             // and pulls per-reading trigger flags from the room object directly.
             const readingRows = fetchedReadings.map(r => {
                 const room = (r as any)[`room${roomIdx}`] ?? {}
-                return {
+                const row: any = {
                     _ts: new Date(r.timestamp).getTime(),
                     _type: 'reading' as const,
                     'Date & Time': formatFullDate(r.timestamp),
                     'Type': 'Reading',
                     'Temperature (°C)': extractMetric(r, roomKey, 'temp'),
-                    'CO₂ (ppm)': extractMetric(r, roomKey, 'CO2'),
-                    'Humidity (%)': extractMetric(r, roomKey, 'O2'),
-                    'C₂H₄ / Ethylene (ppm)': extractMetric(r, roomKey, 'C2H4'),
-                    'Event': '',
                 }
+                if (!isMlh) row['CO₂ (ppm)'] = extractMetric(r, roomKey, 'CO2')
+                row['Humidity (%)'] = extractMetric(r, roomKey, 'O2')
+                if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = extractMetric(r, roomKey, 'C2H4')
+                row['Event'] = ''
+                return row
             })
 
             // ─── Events: same time window, filtered to this room + device-wide ──
@@ -724,17 +735,20 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                         evt.metric === currentRoomId ||
                         (!String(evt.metric).startsWith('room-'))
                     )
-                    eventRows = filteredEvents.map((evt: any) => ({
-                        _ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
-                        _type: 'event' as const,
-                        'Date & Time': formatFullDate(typeof evt.timestamp === 'number' ? evt.timestamp : evt.timestamp),
-                        'Type': humanizeType(evt.eventType),
-                        'Temperature (°C)': '',
-                        'CO₂ (ppm)': '',
-                        'Humidity (%)': '',
-                        'C₂H₄ / Ethylene (ppm)': '',
-                        'Event': `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`,
-                    }))
+                    eventRows = filteredEvents.map((evt: any) => {
+                        const row: any = {
+                            _ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
+                            _type: 'event' as const,
+                            'Date & Time': formatFullDate(typeof evt.timestamp === 'number' ? evt.timestamp : evt.timestamp),
+                            'Type': humanizeType(evt.eventType),
+                            'Temperature (°C)': '',
+                        }
+                        if (!isMlh) row['CO₂ (ppm)'] = ''
+                        row['Humidity (%)'] = ''
+                        if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = ''
+                        row['Event'] = `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`
+                        return row
+                    })
                 }
             } catch (e) {
                 console.log('Events fetch failed (non-critical):', e)
@@ -753,13 +767,13 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             // ─── Readings-only sheet (descending, strip internal fields + event/type columns) ─
             const readingsOnlyRows = [...readingRows]
                 .sort((a, b) => b._ts - a._ts)
-                .map(r => ({
-                    'Date & Time': r['Date & Time'],
-                    'Temperature (°C)': r['Temperature (°C)'],
-                    'CO₂ (ppm)': r['CO₂ (ppm)'],
-                    'Humidity (%)': r['Humidity (%)'],
-                    'C₂H₄ / Ethylene (ppm)': r['C₂H₄ / Ethylene (ppm)'],
-                }))
+                .map(r => {
+                    const row: any = { 'Date & Time': r['Date & Time'], 'Temperature (°C)': r['Temperature (°C)'] }
+                    if (!isMlh) row['CO₂ (ppm)'] = r['CO₂ (ppm)']
+                    row['Humidity (%)'] = r['Humidity (%)']
+                    if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = r['C₂H₄ / Ethylene (ppm)']
+                    return row
+                })
             const wsReadings = utils.json_to_sheet(readingsOnlyRows)
             wsReadings['!cols'] = [
                 { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }
@@ -782,7 +796,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const extractAll = (m: MetricKey): number[] =>
                 fetchedReadings.map(r => extractMetric(r, roomKey, m))
 
-            const summaryRows = METRICS.map(m => {
+            const summaryRows = visibleMetrics.map(m => {
                 const vals = extractAll(m.key)
                 const triggers =
                     m.key === 'CO2'  ? fetchedReadings.map(r => !!(r as any)[`room${roomIdx}`]?.triggerco2)  :
@@ -932,8 +946,8 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                {METRICS.map(m => {
+                            <div className={`grid grid-cols-2 ${visibleMetrics.length <= 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-4'} gap-3`}>
+                                {visibleMetrics.map(m => {
                                     const vals = m.key === 'temp' ? previewData.temp : m.key === 'CO2' ? previewData.co2 : m.key === 'O2' ? previewData.o2 : previewData.c2h4
                                     const triggers = m.key === 'CO2' ? previewData.triggersCO2 : m.key === 'C2H4' ? previewData.triggersC2H4 : []
                                     const { min, max } = minMax(vals)
@@ -954,7 +968,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                                     Chart Preview <span className="text-red-400 font-normal normal-case">· red = triggered reading</span>
                                 </label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {(['temp', 'CO2', 'O2', 'C2H4'] as MetricKey[]).map(key => (
+                                    {visibleMetricKeys.map(key => (
                                         <div key={key} className="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                                             <canvas ref={canvasRefs[key]} width={480} height={200}
                                                 style={{ width: '100%', height: 'auto', display: 'block' }} />
