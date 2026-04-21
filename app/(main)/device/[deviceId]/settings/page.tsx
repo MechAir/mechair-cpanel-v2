@@ -901,8 +901,9 @@ export default function SettingsPage() {
   const activeRooms = (isMlh ? mlhRooms : emsRooms).filter(room => {
     if (!isMlh || Object.keys(enabledRooms).length === 0) return true
     return enabledRooms[room] !== false && enabledRooms[`r${room.replace(/\D/g, '')}`] !== false
-  })  const activeRoom = isMlh ? activeMlhRoom : activeEmsRoom
-  const setActiveRoom = isMlh ? (r: any) => setActiveMlhRoom(r) : (r: any) => setActiveEmsRoom(r)
+})
+  const activeRoom = isMlh ? activeMlhRoom : activeEmsRoom
+    const setActiveRoom = isMlh ? (r: any) => setActiveMlhRoom(r) : (r: any) => setActiveEmsRoom(r)
   const showRoomTabs = isMlh ? activeMlhTab !== 'enabled-rooms' : activeEmsTab !== 'recipes'
 
   return (
