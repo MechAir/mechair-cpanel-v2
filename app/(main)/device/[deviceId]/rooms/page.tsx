@@ -633,9 +633,10 @@ export default function DeviceRoomsPage() {
     if (!canEditRooms) return
     if (!isAuto) {
       setPendingRelay2(prev => {
-        const cur = id in prev ? prev[id] : (rooms.find(r => r.id === id)?.exhOn ?? false)
+        const room = rooms.find(r => r.id === id)
+        const cur = id in prev ? prev[id] : (isMlh ? (room?.sovOn ?? false) : (room?.exhOn ?? false))
         const next = !cur
-        const orig = rooms.find(r => r.id === id)?.exhOn ?? false
+        const orig = isMlh ? (room?.sovOn ?? false) : (room?.exhOn ?? false)
         if (next === orig) { const { [id]: _, ...rest } = prev; return rest }
         return { ...prev, [id]: next }
       })
