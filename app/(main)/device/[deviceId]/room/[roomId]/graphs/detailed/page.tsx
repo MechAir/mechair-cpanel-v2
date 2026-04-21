@@ -1595,7 +1595,8 @@ export default function DetailedGraphsPage() {
           </p>
         </div>
 
-        <div className="flex gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex gap-1.5 sm:gap-2">
             {Array.from({ length: getDeviceType(deviceId).rooms }, (_, i) => String(i + 1))
               .filter(id => {
                 if (getDeviceType(deviceId).prefix !== 'mlh') return true
