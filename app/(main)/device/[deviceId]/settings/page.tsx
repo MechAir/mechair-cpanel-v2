@@ -867,11 +867,19 @@ export default function SettingsPage() {
   const [readOnly, setReadOnly] = useState(false)
   const [showAddSupervisor, setShowAddSupervisor] = useState(false)
   const [showSupervisorModal, setShowSupervisorModal] = useState(false)
+  const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     setReadOnly(isSupervisor())
     setShowAddSupervisor(isSubAdmin())
-  }, [])
+    // Fetch enabled rooms for MLH
+    if (isMlh && deviceId) {
+      fetch(`${API_BASE}/devices/${deviceId}/settings/enabled-rooms`)
+        .then(r => r.json())
+        .then(data => { if (data.success && data.data?.enabledRooms) setEnabledRooms(data.data.enabledRooms) })
+        .catch(() => {})
+    }
+  }, [isMlh, deviceId])
 
   // Tab definitions
   const emsTabs: { key: EmsTabType; label: string; short: string }[] = [
@@ -890,8 +898,10 @@ export default function SettingsPage() {
   const activeTabs = isMlh ? mlhTabs : emsTabs
   const activeTabKey = isMlh ? activeMlhTab : activeEmsTab
   const setActiveTab = isMlh ? (k: any) => setActiveMlhTab(k) : (k: any) => setActiveEmsTab(k)
-  const activeRooms = isMlh ? mlhRooms : emsRooms
-  const activeRoom = isMlh ? activeMlhRoom : activeEmsRoom
+  const activeRooms = (isMlh ? mlhRooms : emsRooms).filter(room => {
+    if (!isMlh || Object.keys(enabledRooms).length === 0) return true
+    return enabledRooms[room] !== false && enabledRooms[`r${room.replace(/\D/g, '')}`] !== false
+  })  const activeRoom = isMlh ? activeMlhRoom : activeEmsRoom
   const setActiveRoom = isMlh ? (r: any) => setActiveMlhRoom(r) : (r: any) => setActiveEmsRoom(r)
   const showRoomTabs = isMlh ? activeMlhTab !== 'enabled-rooms' : activeEmsTab !== 'recipes'
 
