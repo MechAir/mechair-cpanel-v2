@@ -644,7 +644,21 @@ function MlhEnabledRoomsTab({ deviceId, readOnly }: { deviceId: string; readOnly
 
   useEffect(() => {
     apiGet<{ enabledRooms: Record<string, boolean> }>(`/devices/${deviceId}/settings/enabled-rooms`)
-      .then(data => { if (data?.enabledRooms) setEnabled(prev => ({ ...prev, ...data.enabledRooms })) })
+      .then(data => {
+        if (data?.enabledRooms) {
+          // Normalize keys: device sends "r1","r2" format, frontend uses "Room 1","Room 2"
+          const normalized: Record<string, boolean> = {}
+          for (const [key, val] of Object.entries(data.enabledRooms)) {
+            if (key.startsWith('r') && !key.startsWith('Room')) {
+              const num = key.replace('r', '')
+              normalized[`Room ${num}`] = val
+            } else {
+              normalized[key] = val
+            }
+          }
+          setEnabled(prev => ({ ...prev, ...normalized }))
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [deviceId])
