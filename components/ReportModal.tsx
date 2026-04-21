@@ -445,7 +445,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
 
             // Trigger alert banner on page 1 if any
             let titleY = 30
-            if (anyTriggerCO2 || anyTriggerC2H4) {
+            if ((anyTriggerCO2 && !isMlh) || (anyTriggerC2H4 && !isMlh)) {
                 doc.setFillColor(254, 226, 226)
                 doc.roundedRect(14, titleY, PW - 28, triggerCount === 2 ? 22 : 16, 2, 2, 'F')
                 doc.setTextColor(185, 28, 28)
@@ -551,7 +551,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
 
             let p2Y = 30
 
-            if (anyTriggerCO2 || anyTriggerC2H4) {
+            if ((anyTriggerCO2 || anyTriggerC2H4) && !isMlh) {
                 doc.setFillColor(254, 242, 242)
                 doc.setFontSize(13); doc.setFont('helvetica', 'bold')
                 const p2Title = '!! CRITICAL TRIGGER ALERTS DETECTED'
@@ -582,8 +582,10 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 { text: `Room:         ${roomLabel}`, bold: false },
                 { text: `Report Range: ${rangeLabel}`, bold: false },
                 { text: `Data Points:  ${(previewData as any)._fullReadingCount ?? previewData.labels.length}`, bold: false },
-                { text: `CO2 Alert Readings:   ${co2TriggerCount}`, bold: false },
-                { text: `C2H4 Alert Readings:  ${c2h4TriggerCount}`, bold: false },
+                ...(!isMlh ? [
+                    { text: `CO2 Alert Readings:   ${co2TriggerCount}`, bold: false },
+                    { text: `C2H4 Alert Readings:  ${c2h4TriggerCount}`, bold: false },
+                ] : []),
                 { text: `Generated:    ${generatedAt}`, bold: false },
                 { text: '', bold: false },
                 { text: 'Chart Color Key:', bold: true },
@@ -593,9 +595,9 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 { text: '', bold: false },
                 { text: 'Parameters monitored:', bold: true },
                 { text: '  Temperature (degrees C)', bold: false },
-                { text: '  Carbon Dioxide / CO2 (ppm)', bold: false },
+                ...(!isMlh ? [{ text: '  Carbon Dioxide / CO2 (ppm)', bold: false }] : []),
                 { text: '  Humidity (%)', bold: false },
-                { text: '  Ethylene / C2H4 (ppm)', bold: false },
+                ...(!isMlh ? [{ text: '  Ethylene / C2H4 (ppm)', bold: false }] : []),
                 { text: '', bold: false },
                 { text: 'For questions or support, contact your Mech Air administrator.', bold: false },
             ]
