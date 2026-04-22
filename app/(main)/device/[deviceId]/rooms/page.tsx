@@ -583,6 +583,11 @@ export default function DeviceRoomsPage() {
     if (!room) return
     const cur = pendingResetChanges[roomId]?.isOn !== undefined ? pendingResetChanges[roomId].isOn! : room.isOn
     const next = !cur
+    // Prevent turning ON if no recipe assigned (EMS only)
+    if (next && !isMlh && (!room.recipeName || room.recipeName.toLowerCase() === 'none')) {
+      pushToast({ type: 'error', title: 'No Recipe', message: `${room.name} has no recipe assigned. Please assign a recipe in Settings first.` })
+      return
+    }
     setPendingResetChanges(prev => {
       const updated = { ...prev, [roomId]: { ...(prev[roomId] ?? {}), isOn: next } }
       // If all overrides for this room match the server state, remove the entry entirely
