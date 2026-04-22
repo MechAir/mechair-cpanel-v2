@@ -440,9 +440,10 @@ export default function DeviceRoomsPage() {
     if (!isAuthenticated || !deviceId) return
     const fetchState = async () => {
       try {
-        const [stateRes, readingRes] = await Promise.all([
+        const [stateRes, readingRes, recipeRes] = await Promise.all([
           fetch(`${API_BASE}/devices/${deviceId}/state`),
-          fetch(`${API_BASE}/devices/${deviceId}/readings/latest`)
+          fetch(`${API_BASE}/devices/${deviceId}/readings/latest`),
+          fetch(`${API_BASE}/devices/${deviceId}/room-recipe`).catch(() => null)
         ])
         const stateData = await stateRes.json()
         const readingData = await readingRes.json()
@@ -456,6 +457,19 @@ export default function DeviceRoomsPage() {
         if (readingData.success && readingData.data?.reading) {
           fetchedRooms = applyReadingToRooms(fetchedRooms, readingData.data.reading)
         }
+
+        // Merge recipe assignments from Settings so room cards show recipe name immediately
+        try {
+          if (recipeRes && recipeRes.ok) {
+            const recipeData = await recipeRes.json()
+            const assignments: { roomId: string; recipeName: string }[] = recipeData.data?.assignments ?? []
+            fetchedRooms = fetchedRooms.map(room => {
+              const match = assignments.find(a => a.roomId === room.id)
+              if (match && match.recipeName) return { ...room, recipeName: match.recipeName }
+              return room
+            })
+          }
+        } catch (_e) { /* non-critical */ }
 
         // Fetch enabled rooms for MLH devices
         if (isMlh) {
