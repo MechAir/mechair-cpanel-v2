@@ -203,10 +203,21 @@ function DeviceNodeCard({ node, onChanged }: { node: DeviceNode; onChanged?: () 
                     ) : (
                         node.subAdmins.map((sa) => (
                             <div key={sa.user._id}>
-                                <UserRow user={sa.user} indent={0} onChanged={onChanged} />
-                                {sa.supervisors.map((sv) => (
-                                    <UserRow key={sv._id} user={sv} indent={1} onChanged={onChanged} />
-                                ))}
+                                {sa.user._id.startsWith('__direct__') ? (
+                                    <>
+                                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-2 py-2">Direct Supervisors</p>
+                                        {sa.supervisors.map((sv) => (
+                                            <UserRow key={sv._id} user={sv} indent={0} onChanged={onChanged} />
+                                        ))}
+                                    </>
+                                ) : (
+                                    <>
+                                        <UserRow user={sa.user} indent={0} onChanged={onChanged} />
+                                        {sa.supervisors.map((sv) => (
+                                            <UserRow key={sv._id} user={sv} indent={1} onChanged={onChanged} />
+                                        ))}
+                                    </>
+                                )}
                             </div>
                         ))
                     )}
@@ -254,14 +265,39 @@ export default function UserHierarchySection() {
             : users
 
         return devices.map(deviceId => {
-            const subAdmins = filteredUsers
+            const deviceSubAdmins = filteredUsers
                 .filter(u => u.role === 'sub-admin' && u.linkedDeviceId === deviceId)
-                .map(sa => ({
-                    user: sa,
-                    supervisors: filteredUsers.filter(
-                        u => u.role === 'supervisor' && u.linkedDeviceId === deviceId && u.createdBy === sa.username
-                    )
-                }))
+
+            const assignedSupervisorIds = new Set<string>()
+
+            const subAdmins = deviceSubAdmins.map(sa => {
+                const sups = filteredUsers.filter(
+                    u => u.role === 'supervisor' && u.linkedDeviceId === deviceId && u.createdBy === sa.username
+                )
+                sups.forEach(s => assignedSupervisorIds.add(s._id))
+                return { user: sa, supervisors: sups }
+            })
+
+            // Supervisors on this device not linked to any sub-admin (created by admin/owner)
+            const unattachedSupervisors = filteredUsers.filter(
+                u => u.role === 'supervisor' && u.linkedDeviceId === deviceId && !assignedSupervisorIds.has(u._id)
+            )
+
+            // If there are unattached supervisors, show them under a virtual "Direct" group
+            if (unattachedSupervisors.length > 0) {
+                subAdmins.push({
+                    user: {
+                        _id: `__direct__${deviceId}`,
+                        username: 'Direct Supervisors',
+                        role: 'sub-admin' as const,
+                        linkedDeviceId: deviceId,
+                        createdBy: null,
+                        createdAt: '',
+                    },
+                    supervisors: unattachedSupervisors,
+                })
+            }
+
             return { deviceId, subAdmins }
         }).filter(node => !search.trim() || node.subAdmins.length > 0)
     }
