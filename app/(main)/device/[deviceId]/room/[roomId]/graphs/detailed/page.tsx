@@ -1559,7 +1559,7 @@ export default function DetailedGraphsPage() {
         <div className="flex items-center gap-2 text-sm flex-wrap">
           <button onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-gray-700">Home</button>
           <span className="text-gray-300">›</span>
-          <button onClick={() => router.push(`/device/${deviceId}/rooms`)} className="text-gray-400 hover:text-gray-700">{deviceId}</button>
+          <button onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'}`)} className="text-gray-400 hover:text-gray-700">{deviceId}</button>
           <span className="text-gray-300">›</span>
           <span className="text-gray-700 font-semibold">{deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} {roomId} — Graphs</span>
         </div>
