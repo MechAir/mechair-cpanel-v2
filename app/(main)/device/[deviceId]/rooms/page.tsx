@@ -160,7 +160,7 @@ function EmsRoomCard({ room, isManual, hasPendingSov, hasPendingExh, hasPendingC
       {hasPendingChange && <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-400 shadow" />}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-white text-xl font-medium">{room.name.replace(/Room/gi, 'Machine')}</h3>
+          <h3 className="text-white text-xl font-medium">{room.name}</h3>
           <p className="text-white/80 text-sm mt-1">
             {isManual ? <span className="text-amber-300 text-xs font-medium">Manual mode</span> : room.isOn ? 'On' : 'Off'}
           </p>
