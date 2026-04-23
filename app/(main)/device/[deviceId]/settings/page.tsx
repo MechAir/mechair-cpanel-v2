@@ -688,11 +688,11 @@ function MlhEnabledRoomsTab({ deviceId, readOnly }: { deviceId: string; readOnly
   if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
   return (
     <div className="px-3 sm:px-8 py-4 sm:py-6">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-5">Enable / Disable Rooms</p>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-5">Enable / Disable Machines</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-2xl">
         {mlhRooms.map(room => (
           <div key={room} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-200">
-            <span className="text-gray-700 font-medium text-sm">{room}</span>
+            <span className="text-gray-700 font-medium text-sm">{room.replace(/Room/gi, 'Machine')}</span>
             <button onClick={() => !readOnly && setEnabled(p => ({ ...p, [room]: !p[room] }))} disabled={readOnly}
               className={`relative w-12 h-7 rounded-full transition-colors focus:outline-none ${readOnly ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'} ${enabled[room] ? 'bg-emerald-600' : 'bg-gray-300'}`}>
               <span className={`absolute top-0.5 left-0.5 bg-white w-6 h-6 rounded-full transition-transform shadow-sm ${enabled[room] ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -964,7 +964,7 @@ export default function SettingsPage() {
               <button key={room} onClick={() => setActiveRoom(room)}
                 className={`px-4 sm:px-6 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${activeRoom === room ? 'text-white shadow-md' : 'text-white hover:opacity-80'}`}
                 style={{ backgroundColor: activeRoom === room ? (isMlh ? '#60a878' : '#7EC8E3') : (isMlh ? '#2D7D46' : '#2B8DB8') }}>
-                {room}
+                {isMlh ? room.replace(/Room/gi, 'Machine') : room}
               </button>
             ))}
           </div>
