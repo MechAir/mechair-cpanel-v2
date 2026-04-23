@@ -12,6 +12,7 @@ export interface DeviceTypeConfig {
   shortLabel: string
   color: string
   badgeBg: string
+  roomLabel: string    // "Room" for EMS, "Machine" for MLH
   sensors: ('temp' | 'humidity' | 'co2' | 'o2' | 'c2h4')[]
   relays: ('sov' | 'exhaust' | 'compressor')[]
   settingsTabs: ('timings' | 'manual' | 'pump' | 'recipes' | 'limits' | 'enabled-rooms')[]
@@ -19,13 +20,14 @@ export interface DeviceTypeConfig {
 
 // Base configs — rooms is a fallback; actual room count comes from deviceId
 export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
-  ems: {
+ ems: {
     prefix: 'ems',
     rooms: 4, // fallback if digits missing
     label: 'Ethylene Management System',
     shortLabel: 'EMS',
     color: '#2B8DB8',
     badgeBg: 'bg-[#2B8DB8]',
+    roomLabel: 'Room',
     sensors: ['temp', 'co2', 'o2', 'c2h4'],
     relays: ['sov', 'exhaust'],
     settingsTabs: ['timings', 'manual', 'pump', 'recipes', 'limits'],
@@ -37,6 +39,7 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
     shortLabel: 'MLH',
     color: '#2D7D46',
     badgeBg: 'bg-emerald-700',
+    roomLabel: 'Machine',
     sensors: ['temp', 'humidity'],
     relays: ['compressor', 'sov'],
     settingsTabs: ['timings', 'manual', 'enabled-rooms'],
@@ -87,7 +90,8 @@ export function isDeviceType(deviceId: string, type: string): boolean {
 
 // Get room labels for a device type
 export function getRoomLabels(deviceType: DeviceTypeConfig): string[] {
-  return Array.from({ length: deviceType.rooms }, (_, i) => `Room ${i + 1}`)
+  const label = deviceType.roomLabel || 'Room'
+  return Array.from({ length: deviceType.rooms }, (_, i) => `${label} ${i + 1}`)
 }
 
 // Get room IDs for a device type (backend format)
