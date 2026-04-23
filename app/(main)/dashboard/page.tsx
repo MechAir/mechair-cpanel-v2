@@ -325,7 +325,7 @@ function DeviceCard({
 
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-gray-500 gap-2">
-        <span className="whitespace-nowrap">{activeRooms}/{(device.rooms ?? []).length} rooms active</span>
+        <span className="whitespace-nowrap">{activeRooms}/{(device.rooms ?? []).length} {device.deviceId?.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'} active</span>
         <div className="flex items-center gap-1 whitespace-nowrap">
           <span className={`w-1.5 h-1.5 rounded-full ${minutesAgo < 5 ? 'bg-emerald-400' : minutesAgo < 60 ? 'bg-amber-400' : 'bg-gray-300'}`} />
           <span>{lastSeenLabel}</span>
