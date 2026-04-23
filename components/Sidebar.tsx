@@ -22,7 +22,7 @@ export default function Sidebar() {
 
   let menuItems = deviceId ? [
     { name: 'Devices', icon: 'device', href: '/dashboard' },
-    { name: 'Rooms', icon: 'room', href: `/device/${deviceId}/rooms` },
+    { name: deviceId?.toLowerCase().startsWith('mlh') ? 'Machines' : 'Rooms', icon: 'room', href: `/device/${deviceId}/rooms` },
     { name: 'Graphs', icon: 'chart', href: `/device/${deviceId}/graphs` },
     { name: 'Settings', icon: 'settings', href: `/device/${deviceId}/settings` },
   ] : [
