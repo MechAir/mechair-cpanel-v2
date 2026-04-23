@@ -160,7 +160,7 @@ function EmsRoomCard({ room, isManual, hasPendingSov, hasPendingExh, hasPendingC
       {hasPendingChange && <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-400 shadow" />}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-white text-xl font-medium">{room.name}</h3>
+          <h3 className="text-white text-xl font-medium">{room.name.replace(/Room/gi, 'Machine')}</h3>
           <p className="text-white/80 text-sm mt-1">
             {isManual ? <span className="text-amber-300 text-xs font-medium">Manual mode</span> : room.isOn ? 'On' : 'Off'}
           </p>
@@ -385,6 +385,13 @@ export default function DeviceRoomsPage() {
   const isMlh = deviceType.prefix === 'mlh'
   const relay1Label = isMlh ? 'Compressor' : 'SOV'
   const relay2Label = isMlh ? 'Cooling SOV' : 'Exhaust'
+  const unitLabel = deviceType.roomLabel || 'Room'
+
+  // Display-friendly name: replace "Room" with "Machine" for MLH
+  const displayName = (name: string) => {
+    if (isMlh) return name.replace(/Room/gi, 'Machine')
+    return name
+  }
 
   useEffect(() => {
     const authStatus = localStorage.getItem('isAuthenticated')
@@ -599,7 +606,7 @@ export default function DeviceRoomsPage() {
     const next = !cur
     // Prevent turning ON if no recipe assigned (EMS only)
     if (next && !isMlh && (!room.recipeName || room.recipeName.toLowerCase() === 'none')) {
-      pushToast({ type: 'error', title: 'No Recipe', message: `${room.name} has no recipe assigned. Please assign a recipe in Settings first.` })
+      pushToast({ type: 'error', title: 'No Recipe', message: `${isMlh ? room.name.replace(/Room/gi, 'Machine') : room.name} has no recipe assigned. Please assign a recipe in Settings first.` })
       return
     }
     setPendingResetChanges(prev => {
@@ -683,7 +690,7 @@ export default function DeviceRoomsPage() {
     const updated = rooms.map(r => r.id in pendingResetChanges ? { ...r, ...pendingResetChanges[r.id] } : r)
     setRooms(updated); setPendingResetChanges({})
     await updateRoomsOnServer(updated)
-    pushToast({ type: 'success', title: 'Changes Applied', message: 'Room settings saved.' })
+    pushToast({ type: 'success', title: 'Changes Applied', message: `${unitLabel} settings saved.` })
   }
 
   const handleModeConfirm = async () => {
@@ -715,16 +722,20 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
     pushToast({ type: 'success', title: 'Dosing Applied', message: 'Manual dosing settings saved.' })
   }
 
-  // Display rooms with staged changes applied for preview
+ // Display rooms with staged changes applied for preview
   const displayRooms = rooms.map(room => {
+    let r = room
     if (!isAuto && (room.id in pendingRelay1 || room.id in pendingRelay2)) {
       const overrides: Partial<RoomData> = {}
       if (room.id in pendingRelay1) isMlh ? (overrides.compOn = pendingRelay1[room.id]) : (overrides.sovOn = pendingRelay1[room.id])
       if (room.id in pendingRelay2) isMlh ? (overrides.sovOn = pendingRelay2[room.id]) : (overrides.exhOn = pendingRelay2[room.id])
-      return { ...room, ...overrides }
+      r = { ...room, ...overrides }
+    } else if (isAuto && room.id in pendingResetChanges) {
+      r = { ...room, ...pendingResetChanges[room.id] }
     }
-    if (isAuto && room.id in pendingResetChanges) return { ...room, ...pendingResetChanges[room.id] }
-    return room
+    // MLH: display "Machine" instead of "Room"
+    if (isMlh) r = { ...r, name: r.name.replace(/Room/gi, 'Machine') }
+    return r
   })
 
   const pendingManualCount = Object.keys(pendingRelay1).length + Object.keys(pendingRelay2).length
