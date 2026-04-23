@@ -700,7 +700,7 @@ function MlhEnabledRoomsTab({ deviceId, readOnly }: { deviceId: string; readOnly
           </div>
         ))}
       </div>
-      <p className="text-xs text-gray-400 mt-4">Changes sync to the physical display and ESP32 controller.</p>
+      {/* <p className="text-xs text-gray-400 mt-4">Changes sync to the physical display and ESP32 controller.</p> */}
       {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
   )
