@@ -10,7 +10,7 @@ export default function RoomGraphsRedirect() {
   const roomId = params?.roomId as string
 
   useEffect(() => {
-    router.replace(`/device/${deviceId}/room/${roomId}/graphs/detailed`)
+    router.replace(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machine' : 'room'}/${roomId}/graphs/detailed`)
   }, [router, deviceId, roomId])
 
   return (
