@@ -40,7 +40,7 @@ export default function LoginPage() {
       if (user.role === 'owner' || user.role === 'admin') {
         router.push('/dashboard')
       } else if (user.linkedDeviceId) {
-        router.push(`/device/${user.linkedDeviceId}/rooms`)
+        router.push(`/device/${user.linkedDeviceId}/${user.linkedDeviceId?.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'}`)
       } else {
         router.push('/dashboard')
       }
