@@ -18,6 +18,7 @@ interface HierarchyUser {
 interface DeviceNode {
     deviceId: string
     subAdmins: SubAdminNode[]
+    directSupervisors: HierarchyUser[]
 }
 
 interface SubAdminNode {
@@ -57,9 +58,11 @@ function UserRow({
     isLast?: boolean
     onChanged?: () => void
 }) {
-    const joinedDate = new Date(user.createdAt).toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric', year: 'numeric'
-    })
+    const joinedDate = user.createdAt
+        ? new Date(user.createdAt).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric'
+        })
+        : ''
 
     const canManage = isAdmin()   // owner + admin
     const [busy, setBusy] = useState(false)
@@ -114,8 +117,12 @@ function UserRow({
                 {/* Right: created info */}
                 <p className="text-xs text-gray-400">
                     Created by <span className="text-gray-600 font-medium">{user.createdBy ?? 'system'}</span>
-                    <span className="mx-1.5 text-gray-300">·</span>
-                    {joinedDate}
+                    {joinedDate && (
+                        <>
+                            <span className="mx-1.5 text-gray-300">·</span>
+                            {joinedDate}
+                        </>
+                    )}
                 </p>
             </div>
 
@@ -163,7 +170,7 @@ function UserRow({
 // ─── Device Node Card ─────────────────────────────────────────────────────────
 function DeviceNodeCard({ node, onChanged }: { node: DeviceNode; onChanged?: () => void }) {
     const [expanded, setExpanded] = useState(true)
-    const totalUsers = node.subAdmins.reduce((acc, sa) => acc + 1 + sa.supervisors.length, 0)
+    const totalSupervisors = node.subAdmins.reduce((acc, sa) => acc + sa.supervisors.length, 0) + node.directSupervisors.length
 
     return (
         <div className="border border-gray-200 rounded-2xl overflow-hidden">
@@ -181,9 +188,9 @@ function DeviceNodeCard({ node, onChanged }: { node: DeviceNode; onChanged?: () 
                     <p className="text-sm font-semibold text-gray-800">{node.deviceId}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                         {node.subAdmins.length} sub-admin{node.subAdmins.length !== 1 ? 's' : ''}
-                        {totalUsers > node.subAdmins.length && (
+                        {totalSupervisors > 0 && (
                             <span className="ml-1">
-                                · {totalUsers - node.subAdmins.length} supervisor{totalUsers - node.subAdmins.length !== 1 ? 's' : ''}
+                                · {totalSupervisors} supervisor{totalSupervisors !== 1 ? 's' : ''}
                             </span>
                         )}
                     </p>
@@ -198,28 +205,29 @@ function DeviceNodeCard({ node, onChanged }: { node: DeviceNode; onChanged?: () 
 
             {expanded && (
                 <div className="p-3 space-y-1">
-                    {node.subAdmins.length === 0 ? (
+                    {node.subAdmins.length === 0 && node.directSupervisors.length === 0 ? (
                         <p className="text-xs text-gray-400 text-center py-4">No sub-admins assigned to this device</p>
                     ) : (
-                        node.subAdmins.map((sa) => (
-                            <div key={sa.user._id}>
-                                {sa.user._id.startsWith('__direct__') ? (
-                                    <>
-                                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-2 py-2">Direct Supervisors</p>
-                                        {sa.supervisors.map((sv) => (
-                                            <UserRow key={sv._id} user={sv} indent={0} onChanged={onChanged} />
-                                        ))}
-                                    </>
-                                ) : (
-                                    <>
-                                        <UserRow user={sa.user} indent={0} onChanged={onChanged} />
-                                        {sa.supervisors.map((sv) => (
-                                            <UserRow key={sv._id} user={sv} indent={1} onChanged={onChanged} />
-                                        ))}
-                                    </>
-                                )}
-                            </div>
-                        ))
+                        <>
+                            {node.subAdmins.map((sa) => (
+                                <div key={sa.user._id}>
+                                    <UserRow user={sa.user} indent={0} onChanged={onChanged} />
+                                    {sa.supervisors.map((sv) => (
+                                        <UserRow key={sv._id} user={sv} indent={1} onChanged={onChanged} />
+                                    ))}
+                                </div>
+                            ))}
+                            {node.directSupervisors.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-2 py-2 mt-2">
+                                        Direct Supervisors
+                                    </p>
+                                    {node.directSupervisors.map((sv) => (
+                                        <UserRow key={sv._id} user={sv} indent={0} onChanged={onChanged} />
+                                    ))}
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             )}
@@ -279,27 +287,12 @@ export default function UserHierarchySection() {
             })
 
             // Supervisors on this device not linked to any sub-admin (created by admin/owner)
-            const unattachedSupervisors = filteredUsers.filter(
+            const directSupervisors = filteredUsers.filter(
                 u => u.role === 'supervisor' && u.linkedDeviceId === deviceId && !assignedSupervisorIds.has(u._id)
             )
 
-            // If there are unattached supervisors, show them under a virtual "Direct" group
-            if (unattachedSupervisors.length > 0) {
-                subAdmins.push({
-                    user: {
-                        _id: `__direct__${deviceId}`,
-                        username: 'Direct Supervisors',
-                        role: 'sub-admin' as const,
-                        linkedDeviceId: deviceId,
-                        createdBy: null,
-                        createdAt: '',
-                    },
-                    supervisors: unattachedSupervisors,
-                })
-            }
-
-            return { deviceId, subAdmins }
-        }).filter(node => !search.trim() || node.subAdmins.length > 0)
+            return { deviceId, subAdmins, directSupervisors }
+        }).filter(node => !search.trim() || node.subAdmins.length > 0 || node.directSupervisors.length > 0)
     }
 
     const hierarchy = buildHierarchy()
