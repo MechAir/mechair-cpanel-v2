@@ -22,7 +22,7 @@ export default function Sidebar() {
 
   let menuItems = deviceId ? [
     { name: 'Devices', icon: 'device', href: '/dashboard' },
-    { name: deviceId?.toLowerCase().startsWith('mlh') ? 'Machines' : 'Rooms', icon: 'room', href: `/device/${deviceId}/rooms` },
+    { name: deviceId?.toLowerCase().startsWith('mlh') ? 'Machines' : 'Rooms', icon: 'room', href: `/device/${deviceId}/${deviceId?.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'}` },
     { name: 'Graphs', icon: 'chart', href: `/device/${deviceId}/graphs` },
     { name: 'Settings', icon: 'settings', href: `/device/${deviceId}/settings` },
   ] : [
@@ -34,7 +34,7 @@ export default function Sidebar() {
   }
 
   const isActive = (href: string) => {
-    if (href.endsWith('/rooms')) return pathname.includes('/rooms')
+    if (href.endsWith('/rooms') || href.endsWith('/machines')) return pathname.includes('/rooms') || pathname.includes('/machines')
     if (href.endsWith('/graphs')) return pathname.includes('/graphs')
     return pathname === href
   }
