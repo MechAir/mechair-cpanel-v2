@@ -304,7 +304,7 @@ function DeviceCard({
             </p>
             {(() => { const dt = getDeviceType(device.deviceId); return (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white mt-0.5 inline-block" style={{ backgroundColor: dt.color }}>
-                {dt.shortLabel} · {dt.rooms} rooms
+                {dt.shortLabel} · {dt.rooms} {dt.roomLabel?.toLowerCase() === 'machine' ? 'machines' : 'rooms'}
               </span>
             )})()}
           </div>
@@ -506,7 +506,7 @@ function AddDeviceModal({
                 {detectedType ? (
                   <><span className="text-green-500">✓</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white" style={{ backgroundColor: detectedType.color }}>{detectedType.shortLabel}</span>
-                  <span>{detectedType.label} · {detectedType.rooms} rooms</span></>
+                  <span>{detectedType.label} · {detectedType.rooms} {detectedType.roomLabel?.toLowerCase() === 'machine' ? 'machines' : 'rooms'}</span></>
                 ) : (
                   <><span>✗</span><span>Unknown type. Supported: {Object.keys(DEVICE_TYPES).map(k=>k.toUpperCase()).join(', ')}</span></>
                 )}
