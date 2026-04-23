@@ -14,7 +14,7 @@ export default function Sidebar() {
 
   const [admin, setAdmin] = useState(false)
 
-  useEffect(() => {
+  useEffect(() => { 
     setAdmin(isAdmin()) // isAdmin() returns true for both 'owner' and 'admin'
   }, [])
 
