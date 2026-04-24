@@ -42,7 +42,7 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
     roomLabel: 'Machine',
     sensors: ['temp', 'humidity'],
     relays: ['compressor', 'sov'],
-    settingsTabs: ['timings', 'manual', 'enabled-rooms'],
+    settingsTabs: ['timings', 'manual', 'enabled-rooms', 'limits'],
   },
   // ── Add future device types below ──────────────────────────────
   // xyz: {
@@ -54,7 +54,7 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
   //   badgeBg: 'bg-violet-700',
   //   sensors: ['temp', 'humidity', 'co2'],
   //   relays: ['sov', 'compressor'],
-  //   settingsTabs: ['timings', 'manual', 'enabled-rooms'],
+  //   settingsTabs: ['timings', 'manual', 'enabled-rooms', 'limits'],
   // },
 }
 
