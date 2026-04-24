@@ -375,6 +375,7 @@ export default function DeviceRoomsPage() {
   const [pendingRelay2, setPendingRelay2] = useState<Record<string, boolean>>({})
   const [pendingResetChanges, setPendingResetChanges] = useState<Record<string, Partial<RoomData>>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
+  const [s7Data, setS7Data] = useState<{ temp: number; humidity: number } | null>(null)
 
   const user = getUser()
   const canEditWifi = user?.role === 'owner' || user?.role === 'admin'
@@ -463,6 +464,10 @@ export default function DeviceRoomsPage() {
 
         if (readingData.success && readingData.data?.reading) {
           fetchedRooms = applyReadingToRooms(fetchedRooms, readingData.data.reading)
+          // Extract S7 ambient sensor for MLH
+          if (isMlh && readingData.data.reading.sensor7) {
+            setS7Data(readingData.data.reading.sensor7)
+          }
         }
 
         // Merge recipe assignments from Settings so room cards show recipe name immediately
@@ -533,6 +538,10 @@ export default function DeviceRoomsPage() {
             reading[`room${idNum}`] = rest
           })
           setRooms(prev => applyReadingToRooms(prev, reading))
+        }
+        // S7 ambient sensor for MLH
+        if (payload.sensor7) {
+          setS7Data(payload.sensor7)
         }
       }
       if (topic.endsWith('/state')) {
@@ -887,6 +896,27 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
             )}
           </div>
         </div>
+
+        {/* S7 Ambient Sensor Bar — MLH only */}
+        {isMlh && (
+          <div className="max-w-6xl mb-4 sm:mb-6">
+            <div className="bg-[#1B3A2D] rounded-xl px-5 py-3 flex items-center justify-between sm:justify-start sm:gap-12">
+              <div className="flex items-center gap-2">
+                <span className="text-emerald-400/60 text-xs font-bold uppercase tracking-widest">Ambient</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                <span className="text-white/50 text-xs font-medium">Temp</span>
+                <span className="text-white text-lg font-bold">{s7Data?.temp?.toFixed(1) ?? '--'}°C</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                <span className="text-white/50 text-xs font-medium">Humidity</span>
+                <span className="text-white text-lg font-bold">{s7Data?.humidity?.toFixed(1) ?? '--'}%</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Rooms Grid — EMS: 2 cols, MLH: 3 cols */}
         <div className={`grid ${gridCols} gap-4 sm:gap-6 max-w-6xl`}>
