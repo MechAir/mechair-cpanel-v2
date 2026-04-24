@@ -1043,7 +1043,7 @@ export default function SettingsPage() {
 })
   const activeRoom = isMlh ? activeMlhRoom : activeEmsRoom
     const setActiveRoom = isMlh ? (r: any) => setActiveMlhRoom(r) : (r: any) => setActiveEmsRoom(r)
-  const showRoomTabs = isMlh ? activeMlhTab !== 'enabled-rooms' : activeEmsTab !== 'recipes'
+  const showRoomTabs = isMlh ? (activeMlhTab !== 'enabled-rooms' && activeMlhTab !== 'limits') : activeEmsTab !== 'recipes'
 
   return (
     <div className="max-w-7xl mx-auto">
