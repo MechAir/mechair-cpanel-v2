@@ -1276,9 +1276,10 @@ export default function DetailedGraphsPage() {
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   const isAmbientPage = roomId === 's7' || roomId === 'ambient'
+  const isMlhDevice = deviceId.toLowerCase().startsWith('mlh')
 
   // Use MLH metric labels (Humidity instead of Carbon, etc.)
-  if (deviceId.toLowerCase().startsWith('mlh')) {
+  if (isMlhDevice) {
     METRIC_META = MLH_METRIC_META
   } else {
     METRIC_META = EMS_METRIC_META
