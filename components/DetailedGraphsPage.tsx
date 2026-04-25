@@ -1266,8 +1266,10 @@ export default function DetailedGraphsPage() {
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
-  const [s7Data, setS7Data] = useState<{ temp: number; humidity: number } | null>(null)
-  
+const [s7Data, setS7Data] = useState<{
+    temp: number[]; humidity: number[]; labels: string[]; loading: boolean;
+    latestTemp?: number; latestHumid?: number;
+  }>({ temp: [], humidity: [], labels: [], loading: false })  
   // Track live relay states from /state topic so trigger bands appear on graphs
   const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
 
@@ -1346,6 +1348,18 @@ export default function DetailedGraphsPage() {
           intervalsCO2: exhIntervals,
           intervalsC2H4: sovIntervals,
         })
+        // Seed S7 ambient data for MLH
+        if (getDeviceType(deviceId).prefix === 'mlh') {
+          const s7Temp = readings.map((r: any) => r.sensor7?.temp ?? 0)
+          const s7Humid = readings.map((r: any) => r.sensor7?.humidity ?? 0)
+          const s7Labels = readings.map((r: any) => formatLiveLabel(r.timestamp))
+          setS7Data({
+            temp: s7Temp, humidity: s7Humid, labels: s7Labels, loading: false,
+            latestTemp: s7Temp.length > 0 ? s7Temp[s7Temp.length - 1] : undefined,
+            latestHumid: s7Humid.length > 0 ? s7Humid[s7Humid.length - 1] : undefined,
+          })
+        }
+
         setLiveStatus('ok')
       } catch {
         if (!cancelled) setAllData(prev => ({ ...prev, loading: false }))
@@ -1401,9 +1415,21 @@ export default function DetailedGraphsPage() {
       if (timeRange.mode !== 'live') return
 
       // Firmware publishes { device, version, rooms: [{id, temp, CO2|humidity, O2, c2h4}, ...] }
-      // S7 ambient sensor for MLH
-      if (payload.sensor7) {
-        setS7Data(payload.sensor7)
+      // S7 ambient sensor live update for MLH
+      if (payload.sensor7 && timeRange.mode === 'live') {
+        const s7t = Number(payload.sensor7.temp ?? 0)
+        const s7h = Number(payload.sensor7.humidity ?? 0)
+        const label = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        setS7Data(prev => {
+          const newTemp = [...prev.temp, s7t]
+          const newHumid = [...prev.humidity, s7h]
+          const newLabels = [...prev.labels, label]
+          const s = Math.max(0, newLabels.length - 200)
+          return {
+            temp: newTemp.slice(s), humidity: newHumid.slice(s), labels: newLabels.slice(s),
+            loading: false, latestTemp: s7t, latestHumid: s7h,
+          }
+        })
       }
 
       const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
@@ -1601,25 +1627,6 @@ export default function DetailedGraphsPage() {
           </p>
         </div>
 
-        {/* S7 Ambient Sensor Bar — MLH only */}
-        {deviceId.toLowerCase().startsWith('mlh') && (
-          <div className="mb-3">
-            <div className="bg-[#1B3A2D] rounded-xl px-5 py-2.5 flex items-center justify-start gap-10">
-              <span className="text-emerald-400/60 text-xs font-bold uppercase tracking-widest">Ambient</span>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
-                <span className="text-white/50 text-xs font-medium">Temp</span>
-                <span className="text-white text-base font-bold">{s7Data?.temp?.toFixed(1) ?? '--'}°C</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
-                <span className="text-white/50 text-xs font-medium">Humidity</span>
-                <span className="text-white text-base font-bold">{s7Data?.humidity?.toFixed(1) ?? '--'}%</span>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex gap-1.5 sm:gap-2">
             {Array.from({ length: getDeviceType(deviceId).rooms }, (_, i) => String(i + 1))
@@ -1652,6 +1659,19 @@ export default function DetailedGraphsPage() {
           </button>
         </div>
       </div>
+
+      {/* S7 Ambient Sensor Graphs — MLH only */}
+      {deviceId.toLowerCase().startsWith('mlh') && (
+        <div className="mb-3 sm:mb-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Ambient Sensor (S7)</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-5">
+            <MetricGraph metricKey="temp" data={s7Data.temp} triggers={s7Data.temp.map(() => false)} labels={s7Data.labels}
+              latestValue={s7Data.latestTemp} tall isLoading={s7Data.loading} />
+            <MetricGraph metricKey="CO2" data={s7Data.humidity} triggers={s7Data.humidity.map(() => false)} labels={s7Data.labels}
+              latestValue={s7Data.latestHumid} tall isLoading={s7Data.loading} />
+          </div>
+        </div>
+      )}
 
       {/* Graphs — filtered by device type sensors */}
       {(() => {
