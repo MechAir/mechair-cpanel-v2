@@ -26,22 +26,24 @@ interface RangeReading {
   room4: { temp: number; CO2: number; O2: number; c2h4: number }
 }
 
-const METRIC_META = {
+const EMS_METRIC_META = {
   temp: { unit: '°C', label: 'Temperature', color: '#2563EB', triggerColor: '#EF4444', decimals: 1 },
   CO2: { unit: 'ppm', label: 'Carbon Dioxide (CO₂)', color: '#1E3A8A', triggerColor: '#F97316', decimals: 0 },
   O2: { unit: '%', label: 'Humidity', color: '#818CF8', triggerColor: '#EF4444', decimals: 2 },
   C2H4: { unit: 'ppm', label: 'Ethylene (C₂H₄)', color: '#10B981', triggerColor: '#EF4444', decimals: 2 },
-} as const
+}
 
-// MLH overrides — humidity replaces CO2 label, O2/C2H4 not shown
 const MLH_METRIC_META = {
   temp: { unit: '°C', label: 'Temperature', color: '#2563EB', triggerColor: '#EF4444', decimals: 1 },
   CO2: { unit: '%', label: 'Humidity', color: '#0891b2', triggerColor: '#EF4444', decimals: 1 },
   O2: { unit: '%', label: 'O₂', color: '#818CF8', triggerColor: '#EF4444', decimals: 2 },
   C2H4: { unit: 'ppm', label: 'C₂H₄', color: '#10B981', triggerColor: '#EF4444', decimals: 2 },
-} as const
+}
 
-type MetricKey = keyof typeof METRIC_META
+// This gets set once when the page loads based on device type
+let METRIC_META = EMS_METRIC_META
+
+type MetricKey = 'temp' | 'CO2' | 'O2' | 'C2H4'
 type RangeMode = 'live' | 'last_hour' | '6h' | '1d' | '1w' | 'month' | 'custom'
 
 interface TimeRange {
@@ -1274,6 +1276,13 @@ export default function DetailedGraphsPage() {
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   const isAmbientPage = roomId === 's7' || roomId === 'ambient'
+
+  // Use MLH metric labels (Humidity instead of Carbon, etc.)
+  if (deviceId.toLowerCase().startsWith('mlh')) {
+    METRIC_META = MLH_METRIC_META
+  } else {
+    METRIC_META = EMS_METRIC_META
+  }
     const [s7Data, setS7Data] = useState<{
     temp: number[]; humidity: number[]; labels: string[]; loading: boolean;
     latestTemp?: number; latestHumid?: number;
