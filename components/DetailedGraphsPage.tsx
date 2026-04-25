@@ -1663,6 +1663,7 @@ export default function DetailedGraphsPage() {
                ? `Live · ${allData.temp.length} points`
                 : `Showing: ${RANGE_OPTIONS.find(r => r.key === timeRange.mode)?.label ?? 'Custom'}`}
             </span>
+            {!isMlhDevice && (
             <span className="flex items-center gap-2 text-xs">
               {getDeviceType(deviceId).sensors.includes('co2') && (<>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: METRIC_META.CO2.triggerColor, display: 'inline-block' }} />
@@ -1673,6 +1674,7 @@ export default function DetailedGraphsPage() {
               <span style={{ color: METRIC_META.C2H4.triggerColor, fontWeight: 600 }}>C₂H₄ triggered</span>
               </>)}
             </span>
+            )}
           </p>
         </div>
 
@@ -1740,11 +1742,20 @@ export default function DetailedGraphsPage() {
             latestValue={timeRange.mode === 'live' ? latest[`${prefix}_CO2`] : allData.latestCO2}
             isLoading={allData.loading} onExpand={() => setExpandedMetric('CO2')} />
         )
-        if (showO2 || showHumidity) topCards.push(
-          <MetricGraph key="O2" metricKey="O2" data={allData.o2} triggers={emptyTriggers} labels={allData.labels}
-            latestValue={timeRange.mode === 'live' ? latest[`${prefix}_O2`] : allData.latestO2}
-            isLoading={allData.loading} onExpand={() => setExpandedMetric('O2')} />
-        )
+        if (showHumidity && !showO2) {
+          // MLH: humidity data is in CO2 slot, no triggers
+          topCards.push(
+            <MetricGraph key="CO2" metricKey="CO2" data={allData.co2} triggers={emptyTriggers} labels={allData.labels}
+              latestValue={timeRange.mode === 'live' ? latest[`${prefix}_CO2`] : allData.latestCO2}
+              isLoading={allData.loading} onExpand={() => setExpandedMetric('CO2')} />
+          )
+        } else if (showO2) {
+          topCards.push(
+            <MetricGraph key="O2" metricKey="O2" data={allData.o2} triggers={emptyTriggers} labels={allData.labels}
+              latestValue={timeRange.mode === 'live' ? latest[`${prefix}_O2`] : allData.latestO2}
+              isLoading={allData.loading} onExpand={() => setExpandedMetric('O2')} />
+          )
+        }
 
         // For MLH: only show temp and humidity in combined, filter out CO2/C2H4
         const filteredCombinedDataMap: Record<MetricKey, number[]> = { ...combinedDataMap }
