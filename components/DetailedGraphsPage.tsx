@@ -1657,7 +1657,7 @@ export default function DetailedGraphsPage() {
       {/* Title + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 sm:mb-6 gap-3 sm:gap-4">
         <div>
-<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAmbientPage ? 'Ambient Sensor (S7)' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Detailed Metrics</h2>
+<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAmbientPage ? 'Ambient' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Detailed Metrics</h2>
           <p className="text-gray-500 text-sm mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
             <span>
               {timeRange.mode === 'live'
