@@ -9,7 +9,7 @@ export default function DeviceGraphsRedirect() {
   const deviceId = params?.deviceId as string
 
   useEffect(() => {
-    router.replace(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machine' : 'room'}/1/graphs/detailed`)
+    router.replace(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machine/s7' : 'room/1'}/graphs/detailed`)
   }, [router, deviceId])
 
   return (
