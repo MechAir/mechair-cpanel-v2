@@ -185,6 +185,13 @@ function RangeDropdown({ value, onChange }: {
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function extractMetric(reading: RangeReading, roomKey: string, metricKey: MetricKey): number {
+  if (roomKey === 'S7') {
+    const s7 = (reading as any).sensor7
+    if (!s7) return 0
+    if (metricKey === 'temp') return isFinite(s7.temp) ? s7.temp : 0
+    if (metricKey === 'CO2') return isFinite(s7.humidity) ? s7.humidity : 0
+    return 0
+  }
   const roomIndex = parseInt(roomKey.replace('R', ''), 10) - 1
   const roomName = `room${roomIndex + 1}` as keyof RangeReading
   const room = reading[roomName] as any
@@ -1266,7 +1273,8 @@ export default function DetailedGraphsPage() {
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
-const [s7Data, setS7Data] = useState<{
+  const isAmbientPage = roomId === 's7' || roomId === 'ambient'
+    const [s7Data, setS7Data] = useState<{
     temp: number[]; humidity: number[]; labels: string[]; loading: boolean;
     latestTemp?: number; latestHumid?: number;
   }>({ temp: [], humidity: [], labels: [], loading: false })  
@@ -1433,6 +1441,38 @@ const [s7Data, setS7Data] = useState<{
       }
 
       const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
+
+      // Ambient page: use sensor7 data
+      if (isAmbientPage) {
+        if (!payload.sensor7) return
+        const temp = Number(payload.sensor7.temp ?? 0)
+        const co2 = Number(payload.sensor7.humidity ?? 0)
+        const label = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        setLiveStatus('ok')
+        setLastUpdated(new Date().toLocaleTimeString())
+        setLatest({ S7_temp: temp, S7_CO2: co2 } as Partial<ApiReading>)
+        const nowMs = Date.now()
+        const cutoff = nowMs - LIVE_WINDOW_MS
+        setAllData(prev => {
+          if (prev.loading) return prev
+          const newTs = [...prev.timestamps, nowMs]
+          const s = Math.max(0, newTs.findIndex(t => t >= cutoff))
+          return {
+            ...prev,
+            temp: [...prev.temp, temp].slice(s),
+            co2: [...prev.co2, co2].slice(s),
+            o2: [...prev.o2, 0].slice(s),
+            c2h4: [...prev.c2h4, 0].slice(s),
+            triggersCO2: [...prev.triggersCO2, false].slice(s),
+            triggersC2H4: [...prev.triggersC2H4, false].slice(s),
+            timestamps: newTs.slice(s),
+            labels: [...prev.labels, label].slice(s),
+            latestTemp: temp, latestCO2: co2,
+          }
+        })
+        return
+      }
+
       if (roomsArr.length === 0) return
 
       const roomIndex = parseInt(roomId, 10)
@@ -1559,7 +1599,7 @@ const [s7Data, setS7Data] = useState<{
     )
   }
 
-  const prefix = ROOM_PREFIX[roomId] ?? 'R1'
+  const prefix = isAmbientPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
   const emptyTriggers = allData.temp.map(() => false)
   const metricDataMap = {
     C2H4: { data: allData.c2h4, triggers: allData.triggersC2H4, latestValue: timeRange.mode === 'live' ? (latest[`${prefix}_C2H4`] ?? latest[`${prefix}_c2h4`]) : allData.latestC2H4 },
@@ -1593,7 +1633,7 @@ const [s7Data, setS7Data] = useState<{
           <span className="text-gray-300">›</span>
           <button onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'}`)} className="text-gray-400 hover:text-gray-700">{deviceId}</button>
           <span className="text-gray-300">›</span>
-          <span className="text-gray-700 font-semibold">{deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} {roomId} — Graphs</span>
+<span className="text-gray-700 font-semibold">{isAmbientPage ? 'Ambient Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Graphs</span>
         </div>
         {timeRange.mode === 'live' && (
           <div className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
@@ -1607,7 +1647,7 @@ const [s7Data, setS7Data] = useState<{
       {/* Title + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 sm:mb-6 gap-3 sm:gap-4">
         <div>
-          <h2 className="text-xl sm:text-3xl font-bold text-gray-800">{deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} {roomId} — Detailed Metrics</h2>
+<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAmbientPage ? 'Ambient Sensor (S7)' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Detailed Metrics</h2>
           <p className="text-gray-500 text-sm mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
             <span>
               {timeRange.mode === 'live'
@@ -1629,6 +1669,14 @@ const [s7Data, setS7Data] = useState<{
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex gap-1.5 sm:gap-2">
+            {deviceId.toLowerCase().startsWith('mlh') && (
+              <button
+                onClick={() => router.push(`/device/${deviceId}/machine/s7/graphs/detailed`)}
+                className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200
+                  ${isAmbientPage ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#1B5E38] text-white hover:bg-[#247548]'}`}>
+                Ambient
+              </button>
+            )}
             {Array.from({ length: getDeviceType(deviceId).rooms }, (_, i) => String(i + 1))
               .filter(id => {
                 if (getDeviceType(deviceId).prefix !== 'mlh') return true
@@ -1638,7 +1686,7 @@ const [s7Data, setS7Data] = useState<{
               <button key={id}
                 onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machine' : 'room'}/${id}/graphs/detailed`)}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200
-                  ${roomId === id ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#2B8DB8] text-white hover:bg-[#3A9DC4]'}`}>
+                  ${!isAmbientPage && roomId === id ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#2B8DB8] text-white hover:bg-[#3A9DC4]'}`}>
                 {deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} {id}
               </button>
             ))}
@@ -1659,19 +1707,6 @@ const [s7Data, setS7Data] = useState<{
           </button>
         </div>
       </div>
-
-      {/* S7 Ambient Sensor Graphs — MLH only */}
-      {deviceId.toLowerCase().startsWith('mlh') && (
-        <div className="mb-3 sm:mb-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Ambient Sensor (S7)</p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-5">
-            <MetricGraph metricKey="temp" data={s7Data.temp} triggers={s7Data.temp.map(() => false)} labels={s7Data.labels}
-              latestValue={s7Data.latestTemp} tall isLoading={s7Data.loading} />
-            <MetricGraph metricKey="CO2" data={s7Data.humidity} triggers={s7Data.humidity.map(() => false)} labels={s7Data.labels}
-              latestValue={s7Data.latestHumid} tall isLoading={s7Data.loading} />
-          </div>
-        </div>
-      )}
 
       {/* Graphs — filtered by device type sensors */}
       {(() => {
