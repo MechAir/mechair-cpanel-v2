@@ -1266,6 +1266,7 @@ export default function DetailedGraphsPage() {
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
+  const [s7Data, setS7Data] = useState<{ temp: number; humidity: number } | null>(null)
   
   // Track live relay states from /state topic so trigger bands appear on graphs
   const relayStateRef = useRef<{ sovOn: boolean; exhOn: boolean }>({ sovOn: false, exhOn: false })
@@ -1400,6 +1401,11 @@ export default function DetailedGraphsPage() {
       if (timeRange.mode !== 'live') return
 
       // Firmware publishes { device, version, rooms: [{id, temp, CO2|humidity, O2, c2h4}, ...] }
+      // S7 ambient sensor for MLH
+      if (payload.sensor7) {
+        setS7Data(payload.sensor7)
+      }
+
       const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
       if (roomsArr.length === 0) return
 
@@ -1594,6 +1600,25 @@ export default function DetailedGraphsPage() {
             </span>
           </p>
         </div>
+
+        {/* S7 Ambient Sensor Bar — MLH only */}
+        {deviceId.toLowerCase().startsWith('mlh') && (
+          <div className="mb-3">
+            <div className="bg-[#1B3A2D] rounded-xl px-5 py-2.5 flex items-center justify-start gap-10">
+              <span className="text-emerald-400/60 text-xs font-bold uppercase tracking-widest">Ambient</span>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                <span className="text-white/50 text-xs font-medium">Temp</span>
+                <span className="text-white text-base font-bold">{s7Data?.temp?.toFixed(1) ?? '--'}°C</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                <span className="text-white/50 text-xs font-medium">Humidity</span>
+                <span className="text-white text-base font-bold">{s7Data?.humidity?.toFixed(1) ?? '--'}%</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex gap-1.5 sm:gap-2">
