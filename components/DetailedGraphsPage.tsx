@@ -808,13 +808,13 @@ function CombinedGraphExpandModal({ dataMap, triggerMap, labels, latest, prefix,
                 style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', opacity: visible[k] ? 1 : 0.35, transition: 'opacity 0.2s', padding: '4px 8px', borderRadius: 8 }}>
                 <div style={{ width: 14, height: 14, borderRadius: 4, background: METRIC_META[k].color }} />
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>{METRIC_META[k].label.split(' ')[0]}</span>
-                {(k === 'CO2' || k === 'C2H4') && (
-                  <>
-                    <span style={{ fontSize: 10, color: '#CBD5E1', margin: '0 2px' }}>→</span>
-                    <div style={{ width: 14, height: 14, borderRadius: 4, background: METRIC_META[k].triggerColor }} />
-                    <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600 }}>trigger</span>
-                  </>
-                )}
+                {!METRIC_META.CO2.label.includes('Humidity') && (k === 'CO2' || k === 'C2H4') && (
+                <>
+                  <span style={{ fontSize: 9, color: '#CBD5E1', margin: '0 1px' }}>→</span>
+                  <div style={{ width: 10, height: 10, borderRadius: 3, background: METRIC_META[k].triggerColor }} />
+                  <span style={{ fontSize: 9, color: '#CBD5E1' }}>trig</span>
+                </>
+              )}
               </button>
             ))}
           </div>
@@ -999,13 +999,13 @@ function CombinedGraph({ dataMap, triggerMap, labels, latest, prefix, isLoading,
               style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', opacity: visible[k] ? 1 : 0.35, transition: 'opacity 0.2s', padding: '2px 4px' }}>
               <div style={{ width: 10, height: 10, borderRadius: 3, background: METRIC_META[k].color }} />
               <span style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8' }}>{METRIC_META[k].label.split(' ')[0]}</span>
-              {(k === 'CO2' || k === 'C2H4') && (
-                <>
-                  <span style={{ fontSize: 9, color: '#CBD5E1', margin: '0 1px' }}>→</span>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: METRIC_META[k].triggerColor }} />
-                  <span style={{ fontSize: 9, color: '#CBD5E1' }}>trig</span>
-                </>
-              )}
+              {!METRIC_META.CO2.label.includes('Humidity') && (k === 'CO2' || k === 'C2H4') && (
+                  <>
+                    <span style={{ fontSize: 10, color: '#CBD5E1', margin: '0 2px' }}>→</span>
+                    <div style={{ width: 14, height: 14, borderRadius: 4, background: METRIC_META[k].triggerColor }} />
+                    <span style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600 }}>trigger</span>
+                  </>
+                )}
             </button>
           ))}
         </div>
