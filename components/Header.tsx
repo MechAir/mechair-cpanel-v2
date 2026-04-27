@@ -38,6 +38,12 @@ export default function Header({ onToggleSidebar, sidebarOpen, showToggle = true
     const dropdownRef = useRef<HTMLDivElement>(null)
     const lastKnownMode = useRef<string>('')
 
+    // Reset mode tracking + notifications when switching devices
+    useEffect(() => {
+        lastKnownMode.current = ''
+        setNotifications([])
+    }, [deviceId])
+
     // Track which notifications user has seen (timestamp of last open)
     const [lastSeenTs, setLastSeenTs] = useState<number>(() => {
         if (typeof window !== 'undefined') {
