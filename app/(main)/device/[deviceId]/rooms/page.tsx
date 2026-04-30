@@ -246,7 +246,6 @@ function MlhRoomCard({ room, isManual, hasPendingComp, hasPendingSov, hasPending
   )
 }
 
-// ── Manual Dosing Modal ───────────────────────────────────────────────────────
 function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, relay2Label, onConfirm, onCancel }: {
   rooms: RoomData[]
   pendingRelay1: Record<string, boolean>
@@ -256,12 +255,13 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
   onConfirm: () => void
   onCancel: () => void
 }) {
-const isMlh = relay1Label === 'Compressor'
+  const isMlh = relay1Label === 'Compressor'
   const changedRooms = rooms.filter(r => {
     const r1Changed = r.id in pendingRelay1 && pendingRelay1[r.id] !== (isMlh ? r.compOn : r.sovOn)
     const r2Changed = r.id in pendingRelay2 && pendingRelay2[r.id] !== (isMlh ? r.sovOn : r.exhOn)
     return r1Changed || r2Changed
-  })  return (
+  })
+  return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4 border border-gray-100">
         <h2 className="text-base font-bold text-gray-900 mb-4">Manual Dosing</h2>
@@ -269,49 +269,37 @@ const isMlh = relay1Label === 'Compressor'
           <p className="text-sm text-gray-500 mb-6">No changes staged. Toggle relays on a room first.</p>
         ) : (
           <div className="space-y-3 mb-6">
-            {changedRooms.map(room => (
-              <div key={room.id} className="bg-gray-50 rounded-lg px-4 py-3 text-sm">
-                <span className="font-medium text-gray-700 block mb-2">{room.name}</span>
-                {room.id in pendingRelay1 && pendingRelay1[room.id] !== (relay1Label === 'Compressor' ? room.compOn : room.sovOn) && (() => {
-                  const isMlh = relay1Label === 'Compressor'
-                  const currentOn = isMlh ? room.compOn : room.sovOn
-                  return (
+            {changedRooms.map(room => {
+              const r1Current = isMlh ? room.compOn : room.sovOn
+              const r2Current = isMlh ? room.sovOn : room.exhOn
+              const r1Changed = room.id in pendingRelay1 && pendingRelay1[room.id] !== r1Current
+              const r2Changed = room.id in pendingRelay2 && pendingRelay2[room.id] !== r2Current
+              return (
+                <div key={room.id} className="bg-gray-50 rounded-lg px-4 py-3 text-sm">
+                  <span className="font-medium text-gray-700 block mb-2">{room.name}</span>
+                  {r1Changed && (
                     <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
                       <span className="uppercase font-semibold">{relay1Label}</span>
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded-full font-semibold ${currentOn ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{currentOn ? 'ON' : 'OFF'}</span>
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${r1Current ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{r1Current ? 'ON' : 'OFF'}</span>
                         <span>→</span>
                         <span className={`px-2 py-0.5 rounded-full font-semibold ${pendingRelay1[room.id] ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pendingRelay1[room.id] ? 'ON' : 'OFF'}</span>
                       </div>
                     </div>
-                  )
-                })()}
-                {room.id in pendingRelay2 && pendingRelay2[room.id] !== (relay2Label === 'Cooling SOV' ? room.sovOn : room.exhOn) && (() => {
-                  const isMlh = relay2Label === 'Cooling SOV'
-                  const currentOn = isMlh ? room.sovOn : room.exhOn
-                  return (
+                  )}
+                  {r2Changed && (
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span className="uppercase font-semibold">{relay2Label}</span>
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded-full font-semibold ${currentOn ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{currentOn ? 'ON' : 'OFF'}</span>
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${r2Current ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{r2Current ? 'ON' : 'OFF'}</span>
                         <span>→</span>
                         <span className={`px-2 py-0.5 rounded-full font-semibold ${pendingRelay2[room.id] ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pendingRelay2[room.id] ? 'ON' : 'OFF'}</span>
                       </div>
                     </div>
-                  )
-                })()}
-                {room.id in pendingRelay2 && (
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span className="uppercase font-semibold">{relay2Label}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full font-semibold ${room.exhOn ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{room.exhOn ? 'ON' : 'OFF'}</span>
-                      <span>→</span>
-                      <span className={`px-2 py-0.5 rounded-full font-semibold ${pendingRelay2[room.id] ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pendingRelay2[room.id] ? 'ON' : 'OFF'}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
         <div className="flex gap-3">
@@ -324,7 +312,6 @@ const isMlh = relay1Label === 'Compressor'
     </div>
   )
 }
-
 // ── Reset Modal ───────────────────────────────────────────────────────────────
 function ResetModal({ rooms, pendingResetChanges, onConfirm, onCancel }: {
   rooms: RoomData[]; pendingResetChanges: Record<string, Partial<RoomData>>; onConfirm: () => void; onCancel: () => void
