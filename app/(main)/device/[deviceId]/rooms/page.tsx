@@ -256,8 +256,12 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
   onConfirm: () => void
   onCancel: () => void
 }) {
-  const changedRooms = rooms.filter(r => r.id in pendingRelay1 || r.id in pendingRelay2)
-  return (
+const isMlh = relay1Label === 'Compressor'
+  const changedRooms = rooms.filter(r => {
+    const r1Changed = r.id in pendingRelay1 && pendingRelay1[r.id] !== (isMlh ? r.compOn : r.sovOn)
+    const r2Changed = r.id in pendingRelay2 && pendingRelay2[r.id] !== (isMlh ? r.sovOn : r.exhOn)
+    return r1Changed || r2Changed
+  })  return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4 border border-gray-100">
         <h2 className="text-base font-bold text-gray-900 mb-4">Manual Dosing</h2>
@@ -268,7 +272,7 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
             {changedRooms.map(room => (
               <div key={room.id} className="bg-gray-50 rounded-lg px-4 py-3 text-sm">
                 <span className="font-medium text-gray-700 block mb-2">{room.name}</span>
-                {room.id in pendingRelay1 && (() => {
+                {room.id in pendingRelay1 && pendingRelay1[room.id] !== (relay1Label === 'Compressor' ? room.compOn : room.sovOn) && (() => {
                   const isMlh = relay1Label === 'Compressor'
                   const currentOn = isMlh ? room.compOn : room.sovOn
                   return (
@@ -282,7 +286,7 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
                     </div>
                   )
                 })()}
-                {room.id in pendingRelay2 && (() => {
+                {room.id in pendingRelay2 && pendingRelay2[room.id] !== (relay2Label === 'Cooling SOV' ? room.sovOn : room.exhOn) && (() => {
                   const isMlh = relay2Label === 'Cooling SOV'
                   const currentOn = isMlh ? room.sovOn : room.exhOn
                   return (
