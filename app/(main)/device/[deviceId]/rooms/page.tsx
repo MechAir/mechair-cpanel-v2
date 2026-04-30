@@ -268,16 +268,34 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
             {changedRooms.map(room => (
               <div key={room.id} className="bg-gray-50 rounded-lg px-4 py-3 text-sm">
                 <span className="font-medium text-gray-700 block mb-2">{room.name}</span>
-                {room.id in pendingRelay1 && (
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                    <span className="uppercase font-semibold">{relay1Label}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full font-semibold ${room.sovOn ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{room.sovOn ? 'ON' : 'OFF'}</span>
-                      <span>→</span>
-                      <span className={`px-2 py-0.5 rounded-full font-semibold ${pendingRelay1[room.id] ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pendingRelay1[room.id] ? 'ON' : 'OFF'}</span>
+                {room.id in pendingRelay1 && (() => {
+                  const isMlh = relay1Label === 'Compressor'
+                  const currentOn = isMlh ? room.compOn : room.sovOn
+                  return (
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                      <span className="uppercase font-semibold">{relay1Label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${currentOn ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{currentOn ? 'ON' : 'OFF'}</span>
+                        <span>→</span>
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${pendingRelay1[room.id] ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pendingRelay1[room.id] ? 'ON' : 'OFF'}</span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
+                {room.id in pendingRelay2 && (() => {
+                  const isMlh = relay2Label === 'Cooling SOV'
+                  const currentOn = isMlh ? room.sovOn : room.exhOn
+                  return (
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span className="uppercase font-semibold">{relay2Label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${currentOn ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{currentOn ? 'ON' : 'OFF'}</span>
+                        <span>→</span>
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${pendingRelay2[room.id] ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pendingRelay2[room.id] ? 'ON' : 'OFF'}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
                 {room.id in pendingRelay2 && (
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span className="uppercase font-semibold">{relay2Label}</span>
