@@ -528,6 +528,26 @@ export default function DeviceRoomsPage() {
     fetchState()
   }, [isAuthenticated, deviceId])
 
+  // Re-fetch state when page regains focus (handles navigating back from another device)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!isAuthenticated) return
+      fetch(`${API_BASE}/devices/${deviceId}/state`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.data?.rooms) {
+            setRooms(prev => prev.map(room => {
+              const updated = data.data.rooms.find((r: any) => r.id === room.id)
+              return updated ? { ...room, ...updated } : room
+            }))
+          }
+        })
+        .catch(() => {})
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [isAuthenticated, deviceId])
+
   // IoT WebSocket — real-time updates
   useIoT(
     [`devices/${deviceId}/readings`, `devices/${deviceId}/state`],
