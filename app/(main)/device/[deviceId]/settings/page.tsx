@@ -963,6 +963,7 @@ function EmsLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
           <SetpointRow label="Humidity High Limit:" value={cur.humidHigh ?? 90} unit="%" step={1} min={0} max={100} readOnly={readOnly} onChange={v => update({ humidHigh: parseFloat(v) || 0 })} />
           <SetpointRow label="Humidity Low Limit:" value={cur.humidLow ?? 30} unit="%" step={1} min={0} max={100} readOnly={readOnly} onChange={v => update({ humidLow: parseFloat(v) || 0 })} />
         </div>
+      </div>
 
       {/* ── Bottom: Hooter Settings ── */}
       <div className="mt-8 pt-6 border-t border-gray-200">
