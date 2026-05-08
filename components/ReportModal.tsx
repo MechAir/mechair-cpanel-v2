@@ -68,6 +68,13 @@ const ROOM_PREFIX: Record<string, string> = { '1': 'R1', '2': 'R2', '3': 'R3', '
 const TRIGGER_COLOR = '#EF4444'
 
 function extractMetric(r: RangeReading, roomKey: string, key: MetricKey): number {
+    if (roomKey === 'S7') {
+        const s7 = (r as any).sensor7
+        if (!s7) return 0
+        if (key === 'temp') return isFinite(s7.temp) ? s7.temp : 0
+        if (key === 'O2' || key === 'CO2') return isFinite(s7.humidity) ? s7.humidity : 0
+        return 0
+    }
     const idx = parseInt(roomKey.replace('R', ''), 10)
     const room = (r as unknown as Record<string, { temp: number; CO2: number; O2: number; c2h4: number }>)[`room${idx}`]
     if (!room) return 0
@@ -311,9 +318,10 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 }
             } catch { /* non-critical */ }
 
-            const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
+            const isAmbient = roomId === 's7' || roomId === 'ambient'
+            const roomKey = isAmbient ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
             const isMlh = deviceId.toLowerCase().startsWith('mlh')
-            const roomName = `${isMlh ? 'Machine' : 'Room'} ${roomId}`
+            const roomName = isAmbient ? 'Ambient' : `${isMlh ? 'Machine' : 'Room'} ${roomId}`
 
             // Build ON/OFF intervals from relay events
             const buildIntervals = (keyword: string) => {
@@ -702,13 +710,14 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             // Sort oldest → newest
             fetchedReadings.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-            const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
-            const roomIdx = parseInt(roomKey.replace('R', ''), 10)
+            const isAmbient = roomId === 's7' || roomId === 'ambient'
+            const roomKey = isAmbient ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+            const roomIdx = isAmbient ? 0 : parseInt(roomKey.replace('R', ''), 10)
 
             // Build one row per reading — uses extractMetric for per-metric values
             // and pulls per-reading trigger flags from the room object directly.
             const readingRows = fetchedReadings.map(r => {
-                const room = (r as any)[`room${roomIdx}`] ?? {}
+                const room = isAmbient ? ((r as any).sensor7 ?? {}) : ((r as any)[`room${roomIdx}`] ?? {})
                 const row: any = {
                     _ts: new Date(r.timestamp).getTime(),
                     _type: 'reading' as const,
@@ -717,7 +726,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                     'Temperature (°C)': extractMetric(r, roomKey, 'temp'),
                 }
                 if (!isMlh) row['CO₂ (ppm)'] = extractMetric(r, roomKey, 'CO2')
-                row['Humidity (%)'] = extractMetric(r, roomKey, 'O2')
+                row['Humidity (%)'] = isAmbient ? (room.humidity ?? 0) : extractMetric(r, roomKey, 'O2')
                 if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = extractMetric(r, roomKey, 'C2H4')
                 row['Event'] = ''
                 return row
@@ -872,7 +881,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-gray-800">Generate Report</h2>
-                            <p className="text-xs text-gray-400">{deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} {roomId} · PDF with charts & statistics</p>
+<p className="text-xs text-gray-400">{roomId === 's7' || roomId === 'ambient' ? 'Ambient Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} · PDF with charts & statistics</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
