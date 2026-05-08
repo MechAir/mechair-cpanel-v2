@@ -1332,8 +1332,8 @@ export default function DetailedGraphsPage() {
           (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         )
         const readings = allReadings
-        const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
-        const roomName = `Room ${roomId}`
+        const roomKey = isAmbientPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+        const roomName = isAmbientPage ? 'Ambient' : `Room ${roomId}`
         const timestamps = readings.map(r => new Date(r.timestamp).getTime())
         // Parse relay events for trigger bands
         let relayEvents: { timestamp: string; note?: string }[] = []
@@ -1560,8 +1560,8 @@ export default function DetailedGraphsPage() {
       const readings: RangeReading[] = (json.data.readings ?? []).slice().sort(
         (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       )
-      const roomKey = ROOM_PREFIX[roomId] ?? 'R1'
-      const roomName = `Room ${roomId}`
+      const roomKey = isAmbientPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+      const roomName = isAmbientPage ? 'Ambient' : `Room ${roomId}`
       const labels = readings.map(r => formatLabel(r.timestamp, range.mode))
       const timestamps = readings.map(r => new Date(r.timestamp).getTime())
       const lastIdx = readings.length - 1
