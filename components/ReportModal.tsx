@@ -318,10 +318,10 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 }
             } catch { /* non-critical */ }
 
-            const isAmbient = roomId === 's7' || roomId === 'alarm'
-            const roomKey = isAmbient ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+            const isAlarm = roomId === 's7' || roomId === 'alarm'
+            const roomKey = isAlarm ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
             const isMlh = deviceId.toLowerCase().startsWith('mlh')
-            const roomName = isAmbient ? 'Ambient' : `${isMlh ? 'Machine' : 'Room'} ${roomId}`
+            const roomName = isAlarm ? 'Alarm' : `${isMlh ? 'Machine' : 'Room'} ${roomId}`
 
             // Build ON/OFF intervals from relay events
             const buildIntervals = (keyword: string) => {
@@ -710,9 +710,9 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             // Sort oldest → newest
             fetchedReadings.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-            const isAmbient = roomId === 's7' || roomId === 'alarm'
-            const roomKey = isAmbient ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
-            const roomIdx = isAmbient ? 0 : parseInt(roomKey.replace('R', ''), 10)
+            const isAlarm = roomId === 's7' || roomId === 'alarm'
+            const roomKey = isAlarm ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+            const roomIdx = isAlarm ? 0 : parseInt(roomKey.replace('R', ''), 10)
 
             // Build one row per reading — uses extractMetric for per-metric values
             // and pulls per-reading trigger flags from the room object directly.
@@ -724,10 +724,10 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                     'Type': 'Reading',
                 }
 
-                if (isAmbient) {
+                if (isAlarm) {
                     const s7 = (r as any).sensor7 ?? {}
-                    row['Ambient Temp (°C)'] = isFinite(s7.temp) ? s7.temp : 0
-                    row['Ambient Humid (%)'] = isFinite(s7.humidity) ? s7.humidity : 0
+                    row['Alarm Temp (°C)'] = isFinite(s7.temp) ? s7.temp : 0
+                    row['Alarm Humid (%)'] = isFinite(s7.humidity) ? s7.humidity : 0
                     let tempSum = 0, humidSum = 0, count = 0
                     for (let m = 1; m <= 6; m++) {
                         const rm = (r as any)[`room${m}`] ?? {}
@@ -791,7 +791,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 .map(({ _ts, _type, ...row }) => row)
 
             const wsData = utils.json_to_sheet(allRows)
-            if (isAmbient) {
+            if (isAlarm) {
                 wsData['!cols'] = [
                     { wch: 28 }, { wch: 10 },  // Date, Type
                     { wch: 16 }, { wch: 16 },   // Ambient Temp, Humid
@@ -814,11 +814,11 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const readingsOnlyRows = [...readingRows]
                 .sort((a, b) => b._ts - a._ts)
                 .map(r => {
-                    if (isAmbient) {
+                    if (isAlarm) {
                         const row: any = {
                             'Date & Time': r['Date & Time'],
-                            'Ambient Temp (°C)': r['Ambient Temp (°C)'],
-                            'Ambient Humid (%)': r['Ambient Humid (%)'],
+                            'Alarm Temp (°C)': r['Alarm Temp (°C)'],
+                            'Alarm Humid (%)': r['Alarm Humid (%)'],
                         }
                         for (let m = 1; m <= 6; m++) {
                             row[`M${m} Temp (°C)`] = r[`M${m} Temp (°C)`]
@@ -835,7 +835,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                     return row
                 })
             const wsReadings = utils.json_to_sheet(readingsOnlyRows)
-            if (isAmbient) {
+            if (isAlarm) {
                 wsReadings['!cols'] = [
                     { wch: 28 },                 // Date
                     { wch: 16 }, { wch: 16 },   // Ambient
@@ -921,7 +921,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             utils.book_append_sheet(wb, wsSummary, 'Summary')
             utils.book_append_sheet(wb, wsInfo, 'Info')
 
-const fileName = `Mech_Air_${isAmbient ? 'Ambient' : (deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room') + roomId}_${selectedRange}_${Date.now()}.xlsx`
+const fileName = `Mech_Air_${isAlarm ? 'Alarm' : (deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room') + roomId}_${selectedRange}_${Date.now()}.xlsx`
     writeFile(wb, fileName)
         } catch (e) {
             console.error('Excel export failed:', e)
@@ -943,7 +943,7 @@ const fileName = `Mech_Air_${isAmbient ? 'Ambient' : (deviceId.toLowerCase().sta
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-gray-800">Generate Report</h2>
-<p className="text-xs text-gray-400">{roomId === 's7' || roomId === 'ambient' ? 'Ambient Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} · PDF with charts & statistics</p>
+<p className="text-xs text-gray-400">{roomId === 's7' || roomId === 'alarm' ? 'Alarm Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} · PDF with charts & statistics</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
