@@ -369,7 +369,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             setPreviewData({
                 temp: sampled.map(r => extractMetric(r, roomKey, 'temp')),
                 co2: sampled.map(r => extractMetric(r, roomKey, 'CO2')),
-                o2: sampled.map(r => extractMetric(r, roomKey, 'O2')),
+                o2: sampled.map(r => isMlh ? extractMetric(r, roomKey, 'CO2') : extractMetric(r, roomKey, 'O2')),
                 c2h4: sampled.map(r => extractMetric(r, roomKey, 'C2H4')),
                 labels: sampled.map(r => formatLabel(r.timestamp)),
                 rawTimestamps: sampled.map(r => r.timestamp),
@@ -382,7 +382,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 // Full data for accurate summary stats
                 _fullTemp: readings.map(r => extractMetric(r, roomKey, 'temp')),
                 _fullCO2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
-                _fullO2: readings.map(r => extractMetric(r, roomKey, 'O2')),
+                _fullO2: readings.map(r => isMlh ? extractMetric(r, roomKey, 'CO2') : extractMetric(r, roomKey, 'O2')),
                 _fullC2H4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
             } as any)
         } catch (e) {
@@ -744,7 +744,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                     const room = (r as any)[`room${roomIdx}`] ?? {}
                     row['Temperature (°C)'] = extractMetric(r, roomKey, 'temp')
                     if (!isMlh) row['CO₂ (ppm)'] = extractMetric(r, roomKey, 'CO2')
-                    row['Humidity (%)'] = extractMetric(r, roomKey, 'O2')
+                    row['Humidity (%)'] = isMlh ? extractMetric(r, roomKey, 'CO2') : extractMetric(r, roomKey, 'O2')
                     if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = extractMetric(r, roomKey, 'C2H4')
                     row['Event'] = ''
                 }
@@ -868,7 +868,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
 
             // ─── Summary: recomputed from the full reading set (not previewData) ─
             const extractAll = (m: MetricKey): number[] =>
-                fetchedReadings.map(r => extractMetric(r, roomKey, m))
+                fetchedReadings.map(r => (isMlh && m === 'O2') ? extractMetric(r, roomKey, 'CO2') : extractMetric(r, roomKey, m))
 
             const summaryRows = visibleMetrics.map(m => {
                 const vals = extractAll(m.key)
