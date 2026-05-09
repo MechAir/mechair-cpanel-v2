@@ -717,18 +717,37 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             // Build one row per reading — uses extractMetric for per-metric values
             // and pulls per-reading trigger flags from the room object directly.
             const readingRows = fetchedReadings.map(r => {
-                const room = isAmbient ? ((r as any).sensor7 ?? {}) : ((r as any)[`room${roomIdx}`] ?? {})
                 const row: any = {
                     _ts: new Date(r.timestamp).getTime(),
                     _type: 'reading' as const,
                     'Date & Time': formatFullDate(r.timestamp),
                     'Type': 'Reading',
-                    'Temperature (°C)': extractMetric(r, roomKey, 'temp'),
                 }
-                if (!isMlh) row['CO₂ (ppm)'] = extractMetric(r, roomKey, 'CO2')
-                row['Humidity (%)'] = isAmbient ? (room.humidity ?? 0) : extractMetric(r, roomKey, 'O2')
-                if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = extractMetric(r, roomKey, 'C2H4')
-                row['Event'] = ''
+
+                if (isAmbient) {
+                    const s7 = (r as any).sensor7 ?? {}
+                    row['Ambient Temp (°C)'] = isFinite(s7.temp) ? s7.temp : 0
+                    row['Ambient Humid (%)'] = isFinite(s7.humidity) ? s7.humidity : 0
+                    let tempSum = 0, humidSum = 0, count = 0
+                    for (let m = 1; m <= 6; m++) {
+                        const rm = (r as any)[`room${m}`] ?? {}
+                        const mt = isFinite(rm.temp) ? rm.temp : 0
+                        const mh = isFinite(rm.CO2) ? rm.CO2 : (isFinite(rm.humidity) ? rm.humidity : 0)
+                        row[`M${m} Temp (°C)`] = mt
+                        row[`M${m} Humid (%)`] = mh
+                        tempSum += mt; humidSum += mh; count++
+                    }
+                    row['Event'] = ''
+                    row['Avg Temp (°C)'] = count > 0 ? parseFloat((tempSum / count).toFixed(1)) : 0
+                    row['Avg Humid (%)'] = count > 0 ? parseFloat((humidSum / count).toFixed(1)) : 0
+                } else {
+                    const room = (r as any)[`room${roomIdx}`] ?? {}
+                    row['Temperature (°C)'] = extractMetric(r, roomKey, 'temp')
+                    if (!isMlh) row['CO₂ (ppm)'] = extractMetric(r, roomKey, 'CO2')
+                    row['Humidity (%)'] = extractMetric(r, roomKey, 'O2')
+                    if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = extractMetric(r, roomKey, 'C2H4')
+                    row['Event'] = ''
+                }
                 return row
             })
 
@@ -772,14 +791,43 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 .map(({ _ts, _type, ...row }) => row)
 
             const wsData = utils.json_to_sheet(allRows)
-            wsData['!cols'] = [
-                { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 40 }
-            ]
+            if (isAmbient) {
+                wsData['!cols'] = [
+                    { wch: 28 }, { wch: 10 },  // Date, Type
+                    { wch: 16 }, { wch: 16 },   // Ambient Temp, Humid
+                    { wch: 14 }, { wch: 14 },   // M1
+                    { wch: 14 }, { wch: 14 },   // M2
+                    { wch: 14 }, { wch: 14 },   // M3
+                    { wch: 14 }, { wch: 14 },   // M4
+                    { wch: 14 }, { wch: 14 },   // M5
+                    { wch: 14 }, { wch: 14 },   // M6
+                    { wch: 40 },                 // Event
+                    { wch: 14 }, { wch: 14 },   // Avg Temp, Avg Humid
+                ]
+            } else {
+                wsData['!cols'] = [
+                    { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }, { wch: 40 }
+                ]
+            }
 
             // ─── Readings-only sheet (descending, strip internal fields + event/type columns) ─
             const readingsOnlyRows = [...readingRows]
                 .sort((a, b) => b._ts - a._ts)
                 .map(r => {
+                    if (isAmbient) {
+                        const row: any = {
+                            'Date & Time': r['Date & Time'],
+                            'Ambient Temp (°C)': r['Ambient Temp (°C)'],
+                            'Ambient Humid (%)': r['Ambient Humid (%)'],
+                        }
+                        for (let m = 1; m <= 6; m++) {
+                            row[`M${m} Temp (°C)`] = r[`M${m} Temp (°C)`]
+                            row[`M${m} Humid (%)`] = r[`M${m} Humid (%)`]
+                        }
+                        row['Avg Temp (°C)'] = r['Avg Temp (°C)']
+                        row['Avg Humid (%)'] = r['Avg Humid (%)']
+                        return row
+                    }
                     const row: any = { 'Date & Time': r['Date & Time'], 'Temperature (°C)': r['Temperature (°C)'] }
                     if (!isMlh) row['CO₂ (ppm)'] = r['CO₂ (ppm)']
                     row['Humidity (%)'] = r['Humidity (%)']
@@ -787,9 +835,23 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                     return row
                 })
             const wsReadings = utils.json_to_sheet(readingsOnlyRows)
-            wsReadings['!cols'] = [
-                { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }
-            ]
+            if (isAmbient) {
+                wsReadings['!cols'] = [
+                    { wch: 28 },                 // Date
+                    { wch: 16 }, { wch: 16 },   // Ambient
+                    { wch: 14 }, { wch: 14 },   // M1
+                    { wch: 14 }, { wch: 14 },   // M2
+                    { wch: 14 }, { wch: 14 },   // M3
+                    { wch: 14 }, { wch: 14 },   // M4
+                    { wch: 14 }, { wch: 14 },   // M5
+                    { wch: 14 }, { wch: 14 },   // M6
+                    { wch: 14 }, { wch: 14 },   // Avg
+                ]
+            } else {
+                wsReadings['!cols'] = [
+                    { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 24 }
+                ]
+            }
 
             // ─── Events-only sheet (descending) ─────────────────────────────────
             const eventsOnlyRows = [...eventRows]
@@ -859,8 +921,8 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             utils.book_append_sheet(wb, wsSummary, 'Summary')
             utils.book_append_sheet(wb, wsInfo, 'Info')
 
-            const fileName = `Mech_Air_${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'}${roomId}_${selectedRange}_${Date.now()}.xlsx`
-            writeFile(wb, fileName)
+const fileName = `Mech_Air_${isAmbient ? 'Ambient' : (deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room') + roomId}_${selectedRange}_${Date.now()}.xlsx`
+    writeFile(wb, fileName)
         } catch (e) {
             console.error('Excel export failed:', e)
             setError('Failed to export Excel. Please try again.')
