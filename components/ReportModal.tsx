@@ -711,8 +711,9 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             fetchedReadings.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
             const isAlarm = roomId === 's7' || roomId === 'alarm'
-            const roomKey = isAlarm ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
-            const roomIdx = isAlarm ? 0 : parseInt(roomKey.replace('R', ''), 10)
+const roomKey = isAlarm ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+const roomIdx = isAlarm ? 0 : parseInt(roomKey.replace('R', ''), 10)
+const isMlh = deviceId.toLowerCase().startsWith('mlh')
 
             // Build one row per reading — uses extractMetric for per-metric values
             // and pulls per-reading trigger flags from the room object directly.
