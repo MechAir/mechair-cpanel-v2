@@ -80,7 +80,7 @@ function extractMetric(r: RangeReading, roomKey: string, key: MetricKey): number
     if (!room) return 0
     if (key === 'temp') return isFinite(room.temp) ? room.temp : 0
     if (key === 'CO2') return isFinite(room.CO2) ? room.CO2 : 0
-    if (key === 'O2') return isFinite(room.O2) ? room.O2 : 0
+if (key === 'O2') return isFinite(room.O2) && room.O2 !== 0 ? room.O2 : (isFinite(room.CO2) ? room.CO2 : 0)
     // C2H4: API returns lowercase c2h4, also guard against undefined/NaN
     const val = room.c2h4 ?? (room as unknown as Record<string, number>)['C2H4']
     return isFinite(val) ? val : 0
