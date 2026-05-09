@@ -1275,7 +1275,7 @@ export default function DetailedGraphsPage() {
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
-  const isAmbientPage = roomId === 's7' || roomId === 'alarm'
+  const isAlarmPage = roomId === 's7' || roomId === 'alarm'
   const isMlhDevice = deviceId.toLowerCase().startsWith('mlh')
 
   // Use MLH metric labels (Humidity instead of Carbon, etc.)
@@ -1332,8 +1332,8 @@ export default function DetailedGraphsPage() {
           (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         )
         const readings = allReadings
-        const roomKey = isAmbientPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
-        const roomName = isAmbientPage ? 'Ambient' : `Room ${roomId}`
+        const roomKey = isAlarmPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+        const roomName = isAlarmPage ? 'Alarm' : `Room ${roomId}`
         const timestamps = readings.map(r => new Date(r.timestamp).getTime())
         // Parse relay events for trigger bands
         let relayEvents: { timestamp: string; note?: string }[] = []
@@ -1453,7 +1453,7 @@ export default function DetailedGraphsPage() {
       const roomsArr: any[] = Array.isArray(payload?.rooms) ? payload.rooms : []
 
       // Ambient page: use sensor7 data
-      if (isAmbientPage) {
+      if (isAlarmPage) {
         if (!payload.sensor7) return
         const temp = Number(payload.sensor7.temp ?? 0)
         const co2 = Number(payload.sensor7.humidity ?? 0)
@@ -1560,8 +1560,8 @@ export default function DetailedGraphsPage() {
       const readings: RangeReading[] = (json.data.readings ?? []).slice().sort(
         (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       )
-      const roomKey = isAmbientPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
-      const roomName = isAmbientPage ? 'Ambient' : `Room ${roomId}`
+      const roomKey = isAlarmPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+      const roomName = isAlarmPage ? 'Alarm' : `Room ${roomId}`
       const labels = readings.map(r => formatLabel(r.timestamp, range.mode))
       const timestamps = readings.map(r => new Date(r.timestamp).getTime())
       const lastIdx = readings.length - 1
@@ -1609,7 +1609,7 @@ export default function DetailedGraphsPage() {
     )
   }
 
-  const prefix = isAmbientPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+  const prefix = isAlarmPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
   const emptyTriggers = allData.temp.map(() => false)
   const metricDataMap = {
     C2H4: { data: allData.c2h4, triggers: allData.triggersC2H4, latestValue: timeRange.mode === 'live' ? (latest[`${prefix}_C2H4`] ?? latest[`${prefix}_c2h4`]) : allData.latestC2H4 },
@@ -1643,7 +1643,7 @@ export default function DetailedGraphsPage() {
           <span className="text-gray-300">›</span>
           <button onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'}`)} className="text-gray-400 hover:text-gray-700">{deviceId}</button>
           <span className="text-gray-300">›</span>
-<span className="text-gray-700 font-semibold">{isAmbientPage ? 'Ambient Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Graphs</span>
+<span className="text-gray-700 font-semibold">{isAlarmPage ? 'Alarm Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Graphs</span>
         </div>
         {timeRange.mode === 'live' && (
           <div className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
@@ -1657,7 +1657,7 @@ export default function DetailedGraphsPage() {
       {/* Title + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 sm:mb-6 gap-3 sm:gap-4">
         <div>
-<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAmbientPage ? 'Ambient' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Detailed Metrics</h2>
+<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAlarmPage ? 'Alarm' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Detailed Metrics</h2>
           <p className="text-gray-500 text-sm mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
             <span>
               {timeRange.mode === 'live'
@@ -1685,7 +1685,7 @@ export default function DetailedGraphsPage() {
               <button
                 onClick={() => router.push(`/device/${deviceId}/machine/s7/graphs/detailed`)}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200
-                  ${isAmbientPage ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#1B5E38] text-white hover:bg-[#247548]'}`}>
+                  ${isAlarmPage ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#1B5E38] text-white hover:bg-[#247548]'}`}>
                 Alarm
               </button>
             )}
@@ -1698,7 +1698,7 @@ export default function DetailedGraphsPage() {
               <button key={id}
                 onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machine' : 'room'}/${id}/graphs/detailed`)}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200
-                  ${!isAmbientPage && roomId === id ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#2B8DB8] text-white hover:bg-[#3A9DC4]'}`}>
+                  ${!isAlarmPage && roomId === id ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#2B8DB8] text-white hover:bg-[#3A9DC4]'}`}>
                 {deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} {id}
               </button>
             ))}
