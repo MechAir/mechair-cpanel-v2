@@ -1275,7 +1275,7 @@ export default function DetailedGraphsPage() {
   const [lastUpdated, setLastUpdated] = useState('')
   const [latest, setLatest] = useState<Partial<ApiReading>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
-  const isAmbientPage = roomId === 's7' || roomId === 'ambient'
+  const isAmbientPage = roomId === 's7' || roomId === 'alarm'
   const isMlhDevice = deviceId.toLowerCase().startsWith('mlh')
 
   // Use MLH metric labels (Humidity instead of Carbon, etc.)
@@ -1686,7 +1686,7 @@ export default function DetailedGraphsPage() {
                 onClick={() => router.push(`/device/${deviceId}/machine/s7/graphs/detailed`)}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200
                   ${isAmbientPage ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#1B5E38] text-white hover:bg-[#247548]'}`}>
-                Ambient
+                Alarm
               </button>
             )}
             {Array.from({ length: getDeviceType(deviceId).rooms }, (_, i) => String(i + 1))
