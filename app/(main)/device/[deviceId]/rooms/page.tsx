@@ -931,7 +931,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
           <div className="max-w-6xl mb-4 sm:mb-6">
             <div className="bg-[#1B3A2D] rounded-xl px-5 py-3 flex items-center justify-between sm:justify-start sm:gap-12">
               <div className="flex items-center gap-2">
-                <span className="text-emerald-400/60 text-xs font-bold uppercase tracking-widest">Ambient</span>
+  <span className="text-emerald-400/60 text-xs font-bold uppercase tracking-widest">Alarm</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
