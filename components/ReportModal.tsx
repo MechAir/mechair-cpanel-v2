@@ -318,7 +318,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 }
             } catch { /* non-critical */ }
 
-            const isAmbient = roomId === 's7' || roomId === 'ambient'
+            const isAmbient = roomId === 's7' || roomId === 'alarm'
             const roomKey = isAmbient ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
             const isMlh = deviceId.toLowerCase().startsWith('mlh')
             const roomName = isAmbient ? 'Ambient' : `${isMlh ? 'Machine' : 'Room'} ${roomId}`
@@ -710,7 +710,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             // Sort oldest → newest
             fetchedReadings.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-            const isAmbient = roomId === 's7' || roomId === 'ambient'
+            const isAmbient = roomId === 's7' || roomId === 'alarm'
             const roomKey = isAmbient ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
             const roomIdx = isAmbient ? 0 : parseInt(roomKey.replace('R', ''), 10)
 
