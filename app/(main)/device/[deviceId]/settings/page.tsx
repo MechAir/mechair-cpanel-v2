@@ -1444,6 +1444,7 @@ export default function SettingsPage() {
             {activeTabs.map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                 className={`relative z-10 flex-1 py-2 sm:py-2.5 text-[10px] sm:text-sm font-semibold transition-colors duration-300 flex items-center justify-center rounded-full px-1 sm:px-3 leading-tight text-center ${activeTabKey === tab.key ? (isCsm ? 'text-[#7C3AED]' : isMlh ? 'text-emerald-700' : 'text-[#2B8DB8]') : 'text-white hover:text-white/80'}`}>
+                <span className="hidden sm:inline">{tab.label}</span>
                 <span className="sm:hidden">{tab.short}</span>
               </button>
             ))}
