@@ -246,6 +246,45 @@ function MlhRoomCard({ room, isManual, hasPendingComp, hasPendingSov, hasPending
   )
 }
 
+function CsmUnitCard({ room, isManual, hasPendingComp, hasPendingFan, hasPendingChange, onToggleComp, onToggleFan }: {
+  room: RoomData; isManual: boolean
+  hasPendingComp?: boolean; hasPendingFan?: boolean; hasPendingChange?: boolean
+  onToggleComp: (e: React.MouseEvent) => void; onToggleFan: (e: React.MouseEvent) => void
+}) {
+  const bg = isManual ? 'bg-[#4C1D95] opacity-90' : room.isOn ? 'bg-[#6D28D9]' : 'bg-[#4C1D95]'
+  return (
+    <div className={`${bg} rounded-xl shadow-lg p-5 w-full text-white transition-all duration-300 hover:scale-[1.02] relative`}>
+      {hasPendingChange && <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-400 shadow" />}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-white text-xl font-medium">{room.name}</h3>
+          <p className="text-white/80 text-sm mt-1">
+            {isManual ? <span className="text-amber-300 text-xs font-medium">Manual mode</span> : room.isOn ? 'On' : 'Off'}
+          </p>
+        </div>
+        <div className={`w-3 h-3 rounded-full ${isManual ? 'bg-white/30' : room.isOn ? 'bg-green-400' : 'bg-red-400'}`} />
+      </div>
+      {isManual ? (
+        <div className="flex gap-3">
+          <button onClick={onToggleComp}
+            className={`flex-1 py-4 rounded-xl text-base font-bold transition-colors ${room.compOn ? 'bg-green-500 text-white' : 'bg-red-500/80 text-white hover:bg-red-500'}`}>
+            COMP
+          </button>
+          <button onClick={onToggleFan}
+            className={`flex-1 py-4 rounded-xl text-base font-bold transition-colors ${room.sovOn ? 'bg-green-500 text-white' : 'bg-red-500/80 text-white hover:bg-red-500'}`}>
+            FAN
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-3">
+          <span className={`flex-1 py-4 rounded-xl text-base font-bold text-center ${room.compOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/50'}`}>COMP</span>
+          <span className={`flex-1 py-4 rounded-xl text-base font-bold text-center ${room.sovOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/50'}`}>FAN</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, relay2Label, onConfirm, onCancel }: {
   rooms: RoomData[]
   pendingRelay1: Record<string, boolean>
@@ -393,12 +432,14 @@ export default function DeviceRoomsPage() {
   // Detect device type
   const deviceType = getDeviceType(deviceId)
   const isMlh = deviceType.prefix === 'mlh'
-  const relay1Label = isMlh ? 'Compressor' : 'SOV'
-  const relay2Label = isMlh ? 'Cooling SOV' : 'Exhaust'
+  const isCsm = deviceType.prefix === 'csm'
+  const relay1Label = isCsm ? 'COMP' : isMlh ? 'Compressor' : 'SOV'
+  const relay2Label = isCsm ? 'FAN' : isMlh ? 'Cooling SOV' : 'Exhaust'
   const unitLabel = deviceType.roomLabel || 'Room'
 
-  // Display-friendly name: replace "Room" with "Machine" for MLH
+  // Display-friendly name: replace "Room" with "Machine" for MLH, "Unit" for CSM
   const displayName = (name: string) => {
+    if (isCsm) return name.replace(/Room/gi, 'Unit')
     if (isMlh) return name.replace(/Room/gi, 'Machine')
     return name
   }
@@ -772,7 +813,8 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
       r = { ...room, ...pendingResetChanges[room.id] }
     }
     // MLH: display "Machine" instead of "Room"
-    if (isMlh) r = { ...r, name: r.name.replace(/Room/gi, 'Machine') }
+    if (isCsm) r = { ...r, name: r.name.replace(/Room/gi, 'Unit') }
+    else if (isMlh) r = { ...r, name: r.name.replace(/Room/gi, 'Machine') }
     return r
   })
 
@@ -780,7 +822,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
   const pendingResetCount = Object.keys(pendingResetChanges).length
 
   // Grid cols: EMS=2 cols (4 rooms), MLH=3 cols (6 rooms)
-  const gridCols = isMlh ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'
+  const gridCols = isCsm ? 'grid-cols-1 sm:grid-cols-2' : isMlh ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'
 
   if (!isAuthenticated || loading) {
     return <div className="h-full flex items-center justify-center"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#2B8DB8]" /></div>
@@ -956,7 +998,14 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
             return enabledRooms[roomKey] !== false && enabledRooms[rKey] !== false
           }).map(room => (
             <div key={room.id} onClick={() => handleRoomClick(room.id)} className={isAuto && canEditRooms ? 'cursor-pointer' : 'cursor-default'}>
-              {isMlh ? (
+              {isCsm ? (
+                <CsmUnitCard room={room} isManual={!isAuto}
+                  hasPendingComp={!isAuto && room.id in pendingRelay1}
+                  hasPendingFan={!isAuto && room.id in pendingRelay2}
+                  hasPendingChange={isAuto && room.id in pendingResetChanges}
+                  onToggleComp={(e) => handleToggleRelay1(room.id, e)}
+                  onToggleFan={(e) => handleToggleRelay2(room.id, e)} />
+              ) : isMlh ? (
                 <MlhRoomCard room={room} isManual={!isAuto}
                   hasPendingComp={!isAuto && room.id in pendingRelay1}
                   hasPendingSov={!isAuto && room.id in pendingRelay2}
