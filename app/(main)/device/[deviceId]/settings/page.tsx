@@ -52,6 +52,38 @@ const defaultMlhSettings: MlhRoomSettings = {
 const defaultMlhManual: MlhManualSettings = {
   manualCompressorOnTime: { value: 30, unit: 'sec' }, manualSovOnTime: { value: 15, unit: 'sec' },
 }
+
+// CSM types
+type CsmTabType = 'timings' | 'manual' | 'unit-time' | 'calibration' | 'limits'
+interface CsmTimingsSettings {
+  tempSetpoint1: number; tempSetpoint2: number; hyst1: number; hyst2: number
+}
+interface CsmManualSettings {
+  unit1CompOnTime: TimingField; unit1ExhaustOnTime: TimingField
+  unit2CompOnTime: TimingField; unit2ExhaustOnTime: TimingField
+}
+interface CsmUnitTimeSettings { unitTimeValue: number; unitTimeUnit: TimeUnit }
+interface CsmCalibrationSettings { tempOffset: number; humidityOffset: number }
+interface CsmLimitsSettings {
+  recipientEmails: string[]; emailCooldown: TimingField
+  phones: string[]; smsCooldown: TimingField
+  tempHigh: number; tempLow: number; humidHigh: number; humidLow: number
+  hooterOnTime: TimingField; hooterCooldown: TimingField
+}
+const defaultCsmTimings: CsmTimingsSettings = { tempSetpoint1: 20, tempSetpoint2: 25, hyst1: 5, hyst2: 5 }
+const defaultCsmManual: CsmManualSettings = {
+  unit1CompOnTime: { value: 30, unit: 'sec' }, unit1ExhaustOnTime: { value: 30, unit: 'sec' },
+  unit2CompOnTime: { value: 30, unit: 'sec' }, unit2ExhaustOnTime: { value: 30, unit: 'sec' },
+}
+const defaultCsmUnitTime: CsmUnitTimeSettings = { unitTimeValue: 30, unitTimeUnit: 'min' }
+const defaultCsmCalibration: CsmCalibrationSettings = { tempOffset: 0, humidityOffset: 0 }
+const defaultCsmLimits: CsmLimitsSettings = {
+  recipientEmails: [], emailCooldown: { value: 30, unit: 'min' },
+  phones: [], smsCooldown: { value: 30, unit: 'min' },
+  tempHigh: 30, tempLow: -5, humidHigh: 90, humidLow: 30,
+  hooterOnTime: { value: 30, unit: 'sec' }, hooterCooldown: { value: 5, unit: 'min' },
+}
+
 const INITIAL_RECIPES: Recipe[] = [
   { id: 'potato', name: 'POTATO', steps: Array.from({ length: 10 }, (_, i) => ({ days: 3, c2h4_ppm: parseFloat(((i + 1) * 0.5).toFixed(1)) })) },
   { id: 'onion', name: 'ONION', steps: Array.from({ length: 5 }, (_, i) => ({ days: 3, c2h4_ppm: parseFloat(((i + 1) * 0.5).toFixed(1)) })) },
@@ -707,6 +739,318 @@ function MlhEnabledRoomsTab({ deviceId, readOnly }: { deviceId: string; readOnly
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CSM SETTINGS TABS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function CsmTimingsTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boolean }) {
+  const [settings, setSettings] = useState<CsmTimingsSettings>({ ...defaultCsmTimings })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`)
+      .then(data => { if (data?.settings) setSettings(prev => ({ ...prev, ...data.settings })) })
+      .catch(() => setError('Failed to load setpoints.'))
+      .finally(() => setLoading(false))
+  }, [deviceId])
+
+  useIoT(
+    [`devices/${deviceId}/settings/timings`],
+    useCallback(({ payload }) => {
+      const incoming = payload?.settings ?? payload
+      if (incoming && incoming.tempSetpoint1 !== undefined) {
+        setSettings(prev => ({ ...prev, ...incoming }))
+      }
+    }, [])
+  )
+
+  const handleSave = async () => {
+    try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/timings`, { settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    catch (_e) { setError('Failed to save.') } finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6">
+      {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-5">
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Setpoints</p>
+          <SetpointRow label="Temp Setpoint 1:" value={settings.tempSetpoint1} unit="°C" step={0.1} min={-40} max={60} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, tempSetpoint1: parseFloat(v) || 0 }))} />
+          <SetpointRow label="Temp Setpoint 2:" value={settings.tempSetpoint2} unit="°C" step={0.1} min={-40} max={60} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, tempSetpoint2: parseFloat(v) || 0 }))} />
+        </div>
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Hysteresis</p>
+          <SetpointRow label="Hyst 1:" value={settings.hyst1} unit="°C" step={0.1} min={0} max={60} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, hyst1: parseFloat(v) || 0 }))} />
+          <SetpointRow label="Hyst 2:" value={settings.hyst2} unit="°C" step={0.1} min={0} max={60} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, hyst2: parseFloat(v) || 0 }))} />
+        </div>
+      </div>
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+function CsmManualTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boolean }) {
+  const [settings, setSettings] = useState<CsmManualSettings>({ ...defaultCsmManual })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    apiGet<{ manualSettings: any }>(`/devices/${deviceId}/settings/manual-timings`)
+      .then(data => { if (data?.manualSettings) setSettings(prev => ({ ...prev, ...data.manualSettings })) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [deviceId])
+
+  useIoT(
+    [`devices/${deviceId}/settings/manual-timings`],
+    useCallback(({ payload }) => {
+      const incoming = payload?.manualSettings ?? payload
+      if (incoming && incoming.unit1CompOnTime !== undefined) {
+        setSettings(prev => ({ ...prev, ...incoming }))
+      }
+    }, [])
+  )
+
+  const handleSave = async () => {
+    try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/manual-timings`, { manualSettings: settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6 space-y-5">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Unit 1</p>
+      <TimingRow label="Unit 1 Comp ON:" field={settings.unit1CompOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit1CompOnTime: { ...p.unit1CompOnTime, ...u } }))} />
+      <TimingRow label="Unit 1 Exhaust ON:" field={settings.unit1ExhaustOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit1ExhaustOnTime: { ...p.unit1ExhaustOnTime, ...u } }))} />
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">Unit 2</p>
+      <TimingRow label="Unit 2 Comp ON:" field={settings.unit2CompOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit2CompOnTime: { ...p.unit2CompOnTime, ...u } }))} />
+      <TimingRow label="Unit 2 Exhaust ON:" field={settings.unit2ExhaustOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit2ExhaustOnTime: { ...p.unit2ExhaustOnTime, ...u } }))} />
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+function CsmUnitTimeTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boolean }) {
+  const [settings, setSettings] = useState<CsmUnitTimeSettings>({ ...defaultCsmUnitTime })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`)
+      .then(data => {
+        if (data?.settings) {
+          if (data.settings.unitTimeValue !== undefined) setSettings({ unitTimeValue: data.settings.unitTimeValue, unitTimeUnit: data.settings.unitTimeUnit || 'min' })
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [deviceId])
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      // Merge with existing timings so we don't overwrite setpoints
+      const existing = await apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`).catch(() => ({ settings: {} }))
+      const merged = { ...((existing as any)?.settings || {}), unitTimeValue: settings.unitTimeValue, unitTimeUnit: settings.unitTimeUnit }
+      await apiPost(`/devices/${deviceId}/settings/timings`, { settings: merged })
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    } finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6 space-y-5">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Unit Run Time Selection</p>
+      <TimingRow label="Unit Time:" field={{ value: settings.unitTimeValue, unit: settings.unitTimeUnit }} wide readOnly={readOnly}
+        onChange={u => setSettings(p => ({ ...p, ...(u.value !== undefined ? { unitTimeValue: u.value } : {}), ...(u.unit !== undefined ? { unitTimeUnit: u.unit } : {}) }))} />
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+function CsmCalibrationTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boolean }) {
+  const [settings, setSettings] = useState<CsmCalibrationSettings>({ ...defaultCsmCalibration })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`)
+      .then(data => {
+        if (data?.settings) {
+          if (data.settings.tempOffset !== undefined) setSettings({ tempOffset: data.settings.tempOffset, humidityOffset: data.settings.humidityOffset ?? 0 })
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [deviceId])
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      const existing = await apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`).catch(() => ({ settings: {} }))
+      const merged = { ...((existing as any)?.settings || {}), tempOffset: settings.tempOffset, humidityOffset: settings.humidityOffset }
+      await apiPost(`/devices/${deviceId}/settings/timings`, { settings: merged })
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    } finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6 space-y-5">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Sensor Calibration Offsets</p>
+      <SetpointRow label="Temp Offset:" value={settings.tempOffset} unit="°C" step={0.1} min={-50} max={50} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, tempOffset: parseFloat(v) || 0 }))} />
+      <SetpointRow label="Humidity Offset:" value={settings.humidityOffset} unit="%" step={0.1} min={-50} max={50} readOnly={readOnly} onChange={v => setSettings(p => ({ ...p, humidityOffset: parseFloat(v) || 0 }))} />
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+function CsmLimitsTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boolean }) {
+  const [settings, setSettings] = useState<CsmLimitsSettings>({ ...defaultCsmLimits })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [newEmail, setNewEmail] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+
+  useEffect(() => {
+    apiGet<{ limits: any }>(`/devices/${deviceId}/settings/email-hooter-limits`)
+      .then(data => { if (data?.limits) setSettings(prev => ({ ...prev, ...data.limits })) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [deviceId])
+
+  useIoT(
+    [`devices/${deviceId}/settings/email-hooter-limits`],
+    useCallback(({ payload }) => {
+      const incoming = payload?.limits ?? payload
+      if (incoming && (incoming.recipientEmails !== undefined || incoming.phones !== undefined)) {
+        setSettings(prev => ({ ...prev, ...incoming }))
+      }
+    }, [])
+  )
+
+  const update = (patch: Partial<CsmLimitsSettings>) => setSettings(p => ({ ...p, ...patch }))
+
+  const addEmail = () => {
+    const trimmed = newEmail.trim().toLowerCase()
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return
+    if (settings.recipientEmails.includes(trimmed)) return
+    update({ recipientEmails: [...settings.recipientEmails, trimmed] })
+    setNewEmail('')
+  }
+  const removeEmail = (email: string) => update({ recipientEmails: settings.recipientEmails.filter(e => e !== email) })
+
+  const addPhone = () => {
+    const trimmed = newPhone.trim()
+    if (!trimmed || trimmed.length < 7) return
+    if (settings.phones.includes(trimmed)) return
+    update({ phones: [...settings.phones, trimmed] })
+    setNewPhone('')
+  }
+  const removePhone = (phone: string) => update({ phones: settings.phones.filter(p => p !== phone) })
+
+  const handleSave = async () => {
+    try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/email-hooter-limits`, { limits: settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
+    catch (_e) { setError('Failed to save.') } finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
+
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6">
+      {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6">
+        {/* ── Left: Email & SMS Settings ── */}
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Email Settings</p>
+          <div className="space-y-2">
+            <label className="text-gray-700 text-sm sm:text-base font-medium">Recipient Emails:</label>
+            <div className="flex gap-2">
+              <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} readOnly={readOnly} disabled={readOnly} placeholder="user@example.com"
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addEmail())}
+                className={`flex-1 text-sm font-semibold text-gray-800 border-2 border-[#7C3AED] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
+              {!readOnly && <button onClick={addEmail} className="px-4 py-2.5 bg-[#7C3AED] text-white text-sm font-bold rounded-xl hover:bg-[#6D28D9] transition-colors">+ Add</button>}
+            </div>
+            {settings.recipientEmails.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {settings.recipientEmails.map(email => (
+                  <span key={email} className="inline-flex items-center gap-1.5 bg-[#7C3AED]/10 text-[#7C3AED] text-sm font-semibold px-3 py-1.5 rounded-full">
+                    {email}
+                    {!readOnly && <button onClick={() => removeEmail(email)} className="text-[#7C3AED] hover:text-red-500 font-bold text-xs leading-none">✕</button>}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <TimingRow label="Email Cooldown:" field={settings.emailCooldown} readOnly={readOnly}
+            onChange={u => update({ emailCooldown: { ...settings.emailCooldown, ...u } })} />
+
+          <div className="border-t border-gray-200 pt-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">SMS Settings</p>
+            <div className="space-y-2">
+              <label className="text-gray-700 text-sm sm:text-base font-medium">Phone Recipients:</label>
+              <div className="flex gap-2">
+                <input type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} readOnly={readOnly} disabled={readOnly} placeholder="+91XXXXXXXXXX"
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addPhone())}
+                  className={`flex-1 text-sm font-semibold text-gray-800 border-2 border-[#7C3AED] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
+                {!readOnly && <button onClick={addPhone} className="px-4 py-2.5 bg-[#7C3AED] text-white text-sm font-bold rounded-xl hover:bg-[#6D28D9] transition-colors">+ Add</button>}
+              </div>
+              {settings.phones.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {settings.phones.map(phone => (
+                    <span key={phone} className="inline-flex items-center gap-1.5 bg-[#7C3AED]/10 text-[#7C3AED] text-sm font-semibold px-3 py-1.5 rounded-full">
+                      {phone}
+                      {!readOnly && <button onClick={() => removePhone(phone)} className="text-[#7C3AED] hover:text-red-500 font-bold text-xs leading-none">✕</button>}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="mt-4">
+              <TimingRow label="SMS Cooldown:" field={settings.smsCooldown} readOnly={readOnly}
+                onChange={u => update({ smsCooldown: { ...settings.smsCooldown, ...u } })} />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Right: Temp & Humidity Limits ── */}
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Temperature Limits</p>
+          <SetpointRow label="Temp High Limit:" value={settings.tempHigh} unit="°C" step={0.5} min={-40} max={60} readOnly={readOnly} onChange={v => update({ tempHigh: parseFloat(v) || 0 })} />
+          <SetpointRow label="Temp Low Limit:" value={settings.tempLow} unit="°C" step={0.5} min={-40} max={60} readOnly={readOnly} onChange={v => update({ tempLow: parseFloat(v) || 0 })} />
+
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">Humidity Limits</p>
+          <SetpointRow label="Humidity High Limit:" value={settings.humidHigh} unit="%" step={1} min={0} max={100} readOnly={readOnly} onChange={v => update({ humidHigh: parseFloat(v) || 0 })} />
+          <SetpointRow label="Humidity Low Limit:" value={settings.humidLow} unit="%" step={1} min={0} max={100} readOnly={readOnly} onChange={v => update({ humidLow: parseFloat(v) || 0 })} />
+        </div>
+      </div>
+
+      {/* ── Bottom: Hooter Settings ── */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-5">Hooter Settings</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-5 max-w-3xl">
+          <TimingRow label="Hooter ON Time:" field={settings.hooterOnTime} readOnly={readOnly}
+            onChange={u => update({ hooterOnTime: { ...settings.hooterOnTime, ...u } })} />
+          <TimingRow label="Hooter Cooldown:" field={settings.hooterCooldown} readOnly={readOnly}
+            onChange={u => update({ hooterCooldown: { ...settings.hooterCooldown, ...u } })} />
+        </div>
+      </div>
+
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // EMS EMAIL & HOOTER LIMITS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -990,10 +1334,12 @@ export default function SettingsPage() {
 
   const deviceType = getDeviceType(deviceId)
   const isMlh = deviceType.prefix === 'mlh'
+  const isCsm = deviceType.prefix === 'csm'
 
-  // Tab state — EMS or MLH
+  // Tab state — EMS, MLH or CSM
   const [activeEmsTab, setActiveEmsTab] = useState<EmsTabType>('timings')
   const [activeMlhTab, setActiveMlhTab] = useState<MlhTabType>('timings')
+  const [activeCsmTab, setActiveCsmTab] = useState<CsmTabType>('timings')
 
   // Room state — dynamic based on device ID
   const roomCount = deviceType.rooms
@@ -1033,17 +1379,24 @@ export default function SettingsPage() {
     { key: 'enabled-rooms', label: 'Enable Machines', short: 'Machines' },
     { key: 'limits', label: 'Email & Hooter Limits', short: 'Limits' },
   ]
+  const csmTabs: { key: CsmTabType; label: string; short: string }[] = [
+    { key: 'timings', label: 'Setpoint & Timings', short: 'Setpoints' },
+    { key: 'manual', label: 'Manual Settings', short: 'Manual' },
+    { key: 'unit-time', label: 'Unit Time Selection', short: 'Unit Time' },
+    { key: 'calibration', label: 'Calibration', short: 'Calibrate' },
+    { key: 'limits', label: 'Email SMS & Hooter', short: 'Limits' },
+  ]
 
-  const activeTabs = isMlh ? mlhTabs : emsTabs
-  const activeTabKey = isMlh ? activeMlhTab : activeEmsTab
-  const setActiveTab = isMlh ? (k: any) => setActiveMlhTab(k) : (k: any) => setActiveEmsTab(k)
-  const activeRooms = (isMlh ? mlhRooms : emsRooms).filter(room => {
+  const activeTabs = isCsm ? csmTabs : isMlh ? mlhTabs : emsTabs
+  const activeTabKey = isCsm ? activeCsmTab : isMlh ? activeMlhTab : activeEmsTab
+  const setActiveTab = isCsm ? (k: any) => setActiveCsmTab(k) : isMlh ? (k: any) => setActiveMlhTab(k) : (k: any) => setActiveEmsTab(k)
+  const activeRooms = isCsm ? [] : (isMlh ? mlhRooms : emsRooms).filter(room => {
     if (!isMlh || Object.keys(enabledRooms).length === 0) return true
     return enabledRooms[room] !== false && enabledRooms[`r${room.replace(/\D/g, '')}`] !== false
 })
   const activeRoom = isMlh ? activeMlhRoom : activeEmsRoom
     const setActiveRoom = isMlh ? (r: any) => setActiveMlhRoom(r) : (r: any) => setActiveEmsRoom(r)
-  const showRoomTabs = isMlh ? (activeMlhTab !== 'enabled-rooms' && activeMlhTab !== 'limits') : activeEmsTab !== 'recipes'
+  const showRoomTabs = isCsm ? false : isMlh ? (activeMlhTab !== 'enabled-rooms' && activeMlhTab !== 'limits') : activeEmsTab !== 'recipes'
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -1068,7 +1421,7 @@ export default function SettingsPage() {
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
         {/* Tab bar */}
-        <div className="flex items-center px-2 sm:px-4 py-3" style={{ backgroundColor: isMlh ? '#2D7D46' : '#2B8DB8' }}>
+        <div className="flex items-center px-2 sm:px-4 py-3" style={{ backgroundColor: isCsm ? '#7C3AED' : isMlh ? '#2D7D46' : '#2B8DB8' }}>
           <div className="relative flex bg-white/20 rounded-full p-1 w-full">
             <div className="absolute top-1 bottom-1 rounded-full bg-white shadow-md transition-all duration-300"
               style={{ width: `calc((100% - 8px) / ${activeTabs.length})`, transform: `translateX(calc(${activeTabs.findIndex(t => t.key === activeTabKey)} * 100%))` }} />
@@ -1102,11 +1455,18 @@ export default function SettingsPage() {
         {!isMlh && activeEmsTab === 'recipes' && <EmsRecipesTab deviceId={deviceId} readOnly={readOnly} />}
         {!isMlh && activeEmsTab === 'limits' && <EmsLimitsTab activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
 
-        {/* MLH tab content */}
+       {/* MLH tab content */}
         {isMlh && activeMlhTab === 'timings' && <MlhTimingsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'manual' && <MlhManualTab key={`mlh-manual-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'enabled-rooms' && <MlhEnabledRoomsTab deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'limits' && <MlhLimitsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
+
+        {/* CSM tab content */}
+        {isCsm && activeCsmTab === 'timings' && <CsmTimingsTab deviceId={deviceId} readOnly={readOnly} />}
+        {isCsm && activeCsmTab === 'manual' && <CsmManualTab deviceId={deviceId} readOnly={readOnly} />}
+        {isCsm && activeCsmTab === 'unit-time' && <CsmUnitTimeTab deviceId={deviceId} readOnly={readOnly} />}
+        {isCsm && activeCsmTab === 'calibration' && <CsmCalibrationTab deviceId={deviceId} readOnly={readOnly} />}
+        {isCsm && activeCsmTab === 'limits' && <CsmLimitsTab deviceId={deviceId} readOnly={readOnly} />}
       </div>
 
       <div className="border-t border-gray-200 mt-12 py-6">
