@@ -751,18 +751,20 @@ function CsmTimingsTab({ deviceId, readOnly }: { deviceId: string; readOnly?: bo
 
   useEffect(() => {
     apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`)
-      .then(data => { if (data?.settings) setSettings(prev => ({ ...prev, ...data.settings })) })
-      .catch(() => setError('Failed to load setpoints.'))
+      .then(data => { if (data?.settings && typeof data.settings === 'object') setSettings(prev => ({ ...prev, ...data.settings })) })
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [deviceId])
 
   useIoT(
     [`devices/${deviceId}/settings/timings`],
     useCallback(({ payload }) => {
-      const incoming = payload?.settings ?? payload
-      if (incoming && incoming.tempSetpoint1 !== undefined) {
-        setSettings(prev => ({ ...prev, ...incoming }))
-      }
+      try {
+        const incoming = payload?.settings ?? payload
+        if (incoming && typeof incoming === 'object' && incoming.tempSetpoint1 !== undefined) {
+          setSettings(prev => ({ ...prev, ...incoming }))
+        }
+      } catch (_e) { /* ignore bad payloads */ }
     }, [])
   )
 
@@ -800,7 +802,10 @@ function CsmManualTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boo
 
   useEffect(() => {
     apiGet<{ manualSettings: any }>(`/devices/${deviceId}/settings/manual-timings`)
-      .then(data => { if (data?.manualSettings) setSettings(prev => ({ ...prev, ...data.manualSettings })) })
+      .then(data => {
+        try { if (data?.manualSettings && typeof data.manualSettings === 'object' && data.manualSettings.unit1CompOnTime) setSettings(prev => ({ ...prev, ...data.manualSettings })) }
+        catch (_e) { /* ignore parse errors */ }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [deviceId])
@@ -808,10 +813,12 @@ function CsmManualTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boo
   useIoT(
     [`devices/${deviceId}/settings/manual-timings`],
     useCallback(({ payload }) => {
-      const incoming = payload?.manualSettings ?? payload
-      if (incoming && incoming.unit1CompOnTime !== undefined) {
-        setSettings(prev => ({ ...prev, ...incoming }))
-      }
+      try {
+        const incoming = payload?.manualSettings ?? payload
+        if (incoming && typeof incoming === 'object' && incoming.unit1CompOnTime !== undefined) {
+          setSettings(prev => ({ ...prev, ...incoming }))
+        }
+      } catch (_e) { /* ignore bad payloads */ }
     }, [])
   )
 
@@ -843,9 +850,11 @@ function CsmUnitTimeTab({ deviceId, readOnly }: { deviceId: string; readOnly?: b
   useEffect(() => {
     apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`)
       .then(data => {
-        if (data?.settings) {
-          if (data.settings.unitTimeValue !== undefined) setSettings({ unitTimeValue: data.settings.unitTimeValue, unitTimeUnit: data.settings.unitTimeUnit || 'min' })
-        }
+        try {
+          if (data?.settings && typeof data.settings === 'object' && data.settings.unitTimeValue !== undefined) {
+            setSettings({ unitTimeValue: data.settings.unitTimeValue, unitTimeUnit: data.settings.unitTimeUnit || 'min' })
+          }
+        } catch (_e) { /* ignore */ }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -882,9 +891,11 @@ function CsmCalibrationTab({ deviceId, readOnly }: { deviceId: string; readOnly?
   useEffect(() => {
     apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`)
       .then(data => {
-        if (data?.settings) {
-          if (data.settings.tempOffset !== undefined) setSettings({ tempOffset: data.settings.tempOffset, humidityOffset: data.settings.humidityOffset ?? 0 })
-        }
+        try {
+          if (data?.settings && typeof data.settings === 'object' && data.settings.tempOffset !== undefined) {
+            setSettings({ tempOffset: data.settings.tempOffset, humidityOffset: data.settings.humidityOffset ?? 0 })
+          }
+        } catch (_e) { /* ignore */ }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -922,7 +933,10 @@ function CsmLimitsTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boo
 
   useEffect(() => {
     apiGet<{ limits: any }>(`/devices/${deviceId}/settings/email-hooter-limits`)
-      .then(data => { if (data?.limits) setSettings(prev => ({ ...prev, ...data.limits })) })
+      .then(data => {
+        try { if (data?.limits && typeof data.limits === 'object' && !data.limits['Room 1']) setSettings(prev => ({ ...prev, ...data.limits })) }
+        catch (_e) { /* ignore */ }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [deviceId])
@@ -930,10 +944,12 @@ function CsmLimitsTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boo
   useIoT(
     [`devices/${deviceId}/settings/email-hooter-limits`],
     useCallback(({ payload }) => {
-      const incoming = payload?.limits ?? payload
-      if (incoming && (incoming.recipientEmails !== undefined || incoming.phones !== undefined)) {
-        setSettings(prev => ({ ...prev, ...incoming }))
-      }
+      try {
+        const incoming = payload?.limits ?? payload
+        if (incoming && typeof incoming === 'object' && (incoming.recipientEmails !== undefined || incoming.phones !== undefined)) {
+          setSettings(prev => ({ ...prev, ...incoming }))
+        }
+      } catch (_e) { /* ignore bad payloads */ }
     }, [])
   )
 
