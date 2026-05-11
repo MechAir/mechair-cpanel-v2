@@ -15,7 +15,7 @@ export interface DeviceTypeConfig {
   roomLabel: string    // "Room" for EMS, "Machine" for MLH
   sensors: ('temp' | 'humidity' | 'co2' | 'o2' | 'c2h4')[]
   relays: ('sov' | 'exhaust' | 'compressor')[]
-  settingsTabs: ('timings' | 'manual' | 'pump' | 'recipes' | 'limits' | 'enabled-rooms')[]
+settingsTabs: ('timings' | 'manual' | 'pump' | 'recipes' | 'limits' | 'enabled-rooms' | 'unit-time' | 'calibration')[]
 }
 
 // Base configs — rooms is a fallback; actual room count comes from deviceId
@@ -43,6 +43,18 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
     sensors: ['temp', 'humidity'],
     relays: ['compressor', 'sov'],
     settingsTabs: ['timings', 'manual', 'enabled-rooms', 'limits'],
+  },
+  csm: {
+    prefix: 'csm',
+    rooms: 2, // fallback if digits missing
+    label: 'CSM System',
+    shortLabel: 'CSM',
+    color: '#7C3AED',
+    badgeBg: 'bg-violet-700',
+    roomLabel: 'Unit',
+    sensors: ['temp', 'humidity'],
+    relays: ['compressor', 'sov'],
+    settingsTabs: ['timings', 'manual', 'unit-time', 'calibration', 'limits'],
   },
   // ── Add future device types below ──────────────────────────────
   // xyz: {
