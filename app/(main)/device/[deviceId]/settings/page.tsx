@@ -1427,8 +1427,7 @@ export default function SettingsPage() {
               style={{ width: `calc((100% - 8px) / ${activeTabs.length})`, transform: `translateX(calc(${activeTabs.findIndex(t => t.key === activeTabKey)} * 100%))` }} />
             {activeTabs.map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className={`relative z-10 flex-1 py-2 sm:py-2.5 text-[10px] sm:text-sm font-semibold transition-colors duration-300 flex items-center justify-center rounded-full px-1 sm:px-3 leading-tight text-center ${activeTabKey === tab.key ? (isMlh ? 'text-emerald-700' : 'text-[#2B8DB8]') : 'text-white hover:text-white/80'}`}>
-                <span className="hidden sm:inline">{tab.label}</span>
+                className={`relative z-10 flex-1 py-2 sm:py-2.5 text-[10px] sm:text-sm font-semibold transition-colors duration-300 flex items-center justify-center rounded-full px-1 sm:px-3 leading-tight text-center ${activeTabKey === tab.key ? (isCsm ? 'text-[#7C3AED]' : isMlh ? 'text-emerald-700' : 'text-[#2B8DB8]') : 'text-white hover:text-white/80'}`}>
                 <span className="sm:hidden">{tab.short}</span>
               </button>
             ))}
@@ -1441,7 +1440,7 @@ export default function SettingsPage() {
             {activeRooms.map(room => (
               <button key={room} onClick={() => setActiveRoom(room)}
                 className={`px-4 sm:px-6 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${activeRoom === room ? 'text-white shadow-md' : 'text-white hover:opacity-80'}`}
-                style={{ backgroundColor: activeRoom === room ? (isMlh ? '#60a878' : '#7EC8E3') : (isMlh ? '#2D7D46' : '#2B8DB8') }}>
+                style={{ backgroundColor: activeRoom === room ? (isCsm ? '#9F67FF' : isMlh ? '#60a878' : '#7EC8E3') : (isCsm ? '#7C3AED' : isMlh ? '#2D7D46' : '#2B8DB8') }}>
                 {isMlh ? room.replace(/Room/gi, 'Machine') : room}
               </button>
             ))}
