@@ -1464,11 +1464,11 @@ export default function SettingsPage() {
         )}
 
         {/* EMS tab content */}
-        {!isMlh && activeEmsTab === 'timings' && <EmsTimingsTab activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
-        {!isMlh && activeEmsTab === 'manual' && <EmsManualTab key={`manual-${activeEmsRoom}`} activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
-        {!isMlh && activeEmsTab === 'pump' && <EmsPumpTab key={`pump-${activeEmsRoom}`} activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
-        {!isMlh && activeEmsTab === 'recipes' && <EmsRecipesTab deviceId={deviceId} readOnly={readOnly} />}
-        {!isMlh && activeEmsTab === 'limits' && <EmsLimitsTab activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {!isMlh && !isCsm && activeEmsTab === 'timings' && <EmsTimingsTab activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {!isMlh && !isCsm && activeEmsTab === 'manual' && <EmsManualTab key={`manual-${activeEmsRoom}`} activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {!isMlh && !isCsm && activeEmsTab === 'pump' && <EmsPumpTab key={`pump-${activeEmsRoom}`} activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {!isMlh && !isCsm && activeEmsTab === 'recipes' && <EmsRecipesTab deviceId={deviceId} readOnly={readOnly} />}
+        {!isMlh && !isCsm && activeEmsTab === 'limits' && <EmsLimitsTab activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
 
        {/* MLH tab content */}
         {isMlh && activeMlhTab === 'timings' && <MlhTimingsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
