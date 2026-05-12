@@ -295,9 +295,10 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
   onCancel: () => void
 }) {
   const isMlh = relay1Label === 'Compressor'
+  const isCsm = relay1Label === 'COMP'
   const changedRooms = rooms.filter(r => {
-    const r1Changed = r.id in pendingRelay1 && pendingRelay1[r.id] !== (isMlh ? r.compOn : r.sovOn)
-    const r2Changed = r.id in pendingRelay2 && pendingRelay2[r.id] !== (isMlh ? r.sovOn : r.exhOn)
+    const r1Changed = r.id in pendingRelay1 && pendingRelay1[r.id] !== ((isMlh || isCsm) ? r.compOn : r.sovOn)
+    const r2Changed = r.id in pendingRelay2 && pendingRelay2[r.id] !== ((isMlh || isCsm) ? r.sovOn : r.exhOn)
     return r1Changed || r2Changed
   })
   return (
@@ -309,8 +310,8 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
         ) : (
           <div className="space-y-3 mb-6">
             {changedRooms.map(room => {
-              const r1Current = isMlh ? room.compOn : room.sovOn
-              const r2Current = isMlh ? room.sovOn : room.exhOn
+              const r1Current = (isMlh || isCsm) ? room.compOn : room.sovOn
+              const r2Current = (isMlh || isCsm) ? room.sovOn : room.exhOn
               const r1Changed = room.id in pendingRelay1 && pendingRelay1[room.id] !== r1Current
               const r2Changed = room.id in pendingRelay2 && pendingRelay2[room.id] !== r2Current
               return (
