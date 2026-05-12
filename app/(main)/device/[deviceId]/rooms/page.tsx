@@ -684,8 +684,8 @@ export default function DeviceRoomsPage() {
     const cur = pendingResetChanges[roomId]?.isOn !== undefined ? pendingResetChanges[roomId].isOn! : room.isOn
     const next = !cur
     // Prevent turning ON if no recipe assigned (EMS only)
-    if (next && !isMlh && (!room.recipeName || room.recipeName.toLowerCase() === 'none')) {
-      pushToast({ type: 'error', title: 'No Recipe', message: `${isMlh ? room.name.replace(/Room/gi, 'Machine') : room.name} has no recipe assigned. Please assign a recipe in Settings first.` })
+    if (next && !isMlh && !isCsm && (!room.recipeName || room.recipeName.toLowerCase() === 'none')) {
+      pushToast({ type: 'error', title: 'No Recipe', message: `${room.name} has no recipe assigned. Please assign a recipe in Settings first.` })
       return
     }
     setPendingResetChanges(prev => {
@@ -708,9 +708,9 @@ export default function DeviceRoomsPage() {
     if (!canEditRooms) return
     if (!isAuto) {
       setPendingRelay1(prev => {
-        const cur = id in prev ? prev[id] : (isMlh ? (rooms.find(r => r.id === id)?.compOn ?? false) : (rooms.find(r => r.id === id)?.sovOn ?? false))
+        const cur = id in prev ? prev[id] : ((isMlh || isCsm) ? (rooms.find(r => r.id === id)?.compOn ?? false) : (rooms.find(r => r.id === id)?.sovOn ?? false))
         const next = !cur
-        const orig = isMlh ? (rooms.find(r => r.id === id)?.compOn ?? false) : (rooms.find(r => r.id === id)?.sovOn ?? false)
+        const orig = (isMlh || isCsm) ? (rooms.find(r => r.id === id)?.compOn ?? false) : (rooms.find(r => r.id === id)?.sovOn ?? false)
         if (next === orig) { const { [id]: _, ...rest } = prev; return rest }
         return { ...prev, [id]: next }
       })
@@ -739,9 +739,9 @@ export default function DeviceRoomsPage() {
     if (!isAuto) {
       setPendingRelay2(prev => {
         const room = rooms.find(r => r.id === id)
-        const cur = id in prev ? prev[id] : (isMlh ? (room?.sovOn ?? false) : (room?.exhOn ?? false))
+        const cur = id in prev ? prev[id] : ((isMlh || isCsm) ? (room?.sovOn ?? false) : (room?.exhOn ?? false))
         const next = !cur
-        const orig = isMlh ? (room?.sovOn ?? false) : (room?.exhOn ?? false)
+        const orig = (isMlh || isCsm) ? (room?.sovOn ?? false) : (room?.exhOn ?? false)
         if (next === orig) { const { [id]: _, ...rest } = prev; return rest }
         return { ...prev, [id]: next }
       })
@@ -792,8 +792,8 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
     if (Object.keys(pendingRelay1).length === 0 && Object.keys(pendingRelay2).length === 0) return
     const updated = rooms.map(r => {
       const overrides: Partial<RoomData> = {}
-      if (r.id in pendingRelay1) isMlh ? (overrides.compOn = pendingRelay1[r.id]) : (overrides.sovOn = pendingRelay1[r.id])
-      if (r.id in pendingRelay2) isMlh ? (overrides.sovOn = pendingRelay2[r.id]) : (overrides.exhOn = pendingRelay2[r.id])
+      if (r.id in pendingRelay1) (isMlh || isCsm) ? (overrides.compOn = pendingRelay1[r.id]) : (overrides.sovOn = pendingRelay1[r.id])
+      if (r.id in pendingRelay2) (isMlh || isCsm) ? (overrides.sovOn = pendingRelay2[r.id]) : (overrides.exhOn = pendingRelay2[r.id])
       return Object.keys(overrides).length > 0 ? { ...r, ...overrides } : r
     })
     setRooms(updated); setPendingRelay1({}); setPendingRelay2({})
@@ -806,8 +806,8 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
     let r = room
     if (!isAuto && (room.id in pendingRelay1 || room.id in pendingRelay2)) {
       const overrides: Partial<RoomData> = {}
-      if (room.id in pendingRelay1) isMlh ? (overrides.compOn = pendingRelay1[room.id]) : (overrides.sovOn = pendingRelay1[room.id])
-      if (room.id in pendingRelay2) isMlh ? (overrides.sovOn = pendingRelay2[room.id]) : (overrides.exhOn = pendingRelay2[room.id])
+      if (room.id in pendingRelay1) (isMlh || isCsm) ? (overrides.compOn = pendingRelay1[room.id]) : (overrides.sovOn = pendingRelay1[room.id])
+      if (room.id in pendingRelay2) (isMlh || isCsm) ? (overrides.sovOn = pendingRelay2[room.id]) : (overrides.exhOn = pendingRelay2[room.id])
       r = { ...room, ...overrides }
     } else if (isAuto && room.id in pendingResetChanges) {
       r = { ...room, ...pendingResetChanges[room.id] }
@@ -925,10 +925,24 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
         <div className="flex items-center gap-2 sm:gap-4 mb-6 sm:mb-8 flex-wrap w-full">
           {canEditRooms && (
             <div className="relative">
-              <button onClick={() => setShowReset(true)}
-                className="px-4 sm:px-8 py-2.5 sm:py-4 bg-white border-2 border-[#5A7C8C] text-[#5A7C8C] rounded-xl sm:rounded-2xl font-semibold hover:bg-[#5A7C8C] hover:text-white transition-colors text-sm sm:text-lg">
-                Reset
-              </button>
+              {isCsm ? (
+                <button onClick={() => {
+                  // Start/Stop toggle: if any unit is on → stop all, else start all
+                  const anyOn = rooms.some(r => r.isOn)
+                  const changes: Record<string, Partial<RoomData>> = {}
+                  rooms.forEach(r => { changes[r.id] = { isOn: !anyOn } })
+                  setPendingResetChanges(changes)
+                  setShowReset(true)
+                }}
+                  className={`px-4 sm:px-8 py-2.5 sm:py-4 border-2 rounded-xl sm:rounded-2xl font-semibold transition-colors text-sm sm:text-lg ${rooms.some(r => r.isOn) ? 'bg-red-500 border-red-500 text-white hover:bg-red-600' : 'bg-green-500 border-green-500 text-white hover:bg-green-600'}`}>
+                  {rooms.some(r => r.isOn) ? '■ Stop' : '▶ Start'}
+                </button>
+              ) : (
+                <button onClick={() => setShowReset(true)}
+                  className="px-4 sm:px-8 py-2.5 sm:py-4 bg-white border-2 border-[#5A7C8C] text-[#5A7C8C] rounded-xl sm:rounded-2xl font-semibold hover:bg-[#5A7C8C] hover:text-white transition-colors text-sm sm:text-lg">
+                  Reset
+                </button>
+              )}
               {isAuto && pendingResetCount > 0 && (
                 <span className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center bg-amber-500 text-white text-xs font-bold rounded-full">{pendingResetCount}</span>
               )}
@@ -984,6 +998,27 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
                 <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
                 <span className="text-white/50 text-xs font-medium">Humidity</span>
                 <span className="text-white text-lg font-bold">{s7Data?.humidity?.toFixed(1) ?? '--'}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Common Sensor Bar — CSM (both units share same sensors) */}
+        {isCsm && (
+          <div className="max-w-6xl mb-4 sm:mb-6">
+            <div className="bg-[#2D1B69] rounded-xl px-5 py-3 flex items-center justify-between sm:justify-start sm:gap-12">
+              <div className="flex items-center gap-2">
+                <span className="text-purple-400/60 text-xs font-bold uppercase tracking-widest">Sensors</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                <span className="text-white/50 text-xs font-medium">Temp</span>
+                <span className="text-white text-lg font-bold">{rooms[0]?.temp?.toFixed(1) ?? '--'}°C</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                <span className="text-white/50 text-xs font-medium">Humidity</span>
+                <span className="text-white text-lg font-bold">{rooms[0]?.humid?.toFixed(1) ?? '--'}%</span>
               </div>
             </div>
           </div>
