@@ -9,7 +9,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Push to MechAir fork
+      - name: Push to MechAir repo
         run: |
           git remote add mechair https://x-access-token:${{ secrets.MECHAIR_PAT }}@github.com/MechAir/mechair-cpanel-v2.git
           git push mechair main --force
