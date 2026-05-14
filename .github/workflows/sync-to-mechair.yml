@@ -10,6 +10,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Push to MechAir repo
+        env:
+          PAT: ${{ secrets.MECHAIR_PAT }}
         run: |
-          git remote add mechair https://x-access-token:${{ secrets.MECHAIR_PAT }}@github.com/MechAir/mechair-cpanel-v2.git
+          git config user.name "DhyeyBhavsar"
+          git config user.email "dhyey@mechair.co.in"
+          git remote add mechair https://${PAT}@github.com/MechAir/mechair-cpanel-v2.git
           git push mechair main --force
