@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react'
 
-const IOT_ENDPOINT = 'a92woj9ctycen-ats.iot.ap-south-1.amazonaws.com'
+const IOT_ENDPOINT = 'aza2ym6h5xfcf-ats.iot.ap-south-1.amazonaws.com'
 const REGION = 'ap-south-1'
-const IDENTITY_POOL_ID = 'ap-south-1:f8c65bba-cd6c-4776-9996-b7d7bfab6ac8'
+const IDENTITY_POOL_ID = 'ap-south-1:d56bf494-b8f0-4139-8f27-44d705065ffc'
 
 async function getCognitoCredentials() {
   let identityId = typeof window !== 'undefined' ? localStorage.getItem('mechair_identity_id') : null
