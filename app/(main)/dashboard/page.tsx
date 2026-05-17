@@ -454,7 +454,7 @@ function AddDeviceModal({
       if (exists) { setError('A device with this ID already exists'); setLoading(false); return }
 
       // Try dedicated register endpoint first
-      const registerRes = await fetch(`${API_BASE}/devices/register`, {
+      const registerRes = await fetch(`${API_BASE}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId: deviceId.trim(), deviceType: detectedType.prefix, name: name.trim() || deviceId.trim(), location: location.trim() || 'Not specified', rooms: detectedType.rooms })
