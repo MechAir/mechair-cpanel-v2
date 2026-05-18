@@ -1313,15 +1313,15 @@ function EmsLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
             onChange={u => update({ emailCooldown: { ...cur.emailCooldown, ...u } })} />
         </div>
 
-        {/* ── Right: Temp & Humidity Limits ── */}
+        {/* ── Right: C₂H₄ & CO₂ Limits ── */}
         <div className="space-y-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Temperature Limits</p>
-          <SetpointRow label="Temp High Limit:" value={cur.tempHigh ?? 30} unit="°C" step={0.5} min={-40} max={60} readOnly={readOnly} onChange={v => update({ tempHigh: parseFloat(v) || 0 })} />
-          <SetpointRow label="Temp Low Limit:" value={cur.tempLow ?? -5} unit="°C" step={0.5} min={-40} max={60} readOnly={readOnly} onChange={v => update({ tempLow: parseFloat(v) || 0 })} />
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">C₂H₄ Limits</p>
+          <SetpointRow label="C₂H₄ High Limit:" value={cur.c2h4High ?? 5} unit="ppm" step={0.1} min={0} max={50} readOnly={readOnly} onChange={v => update({ c2h4High: parseFloat(v) || 0 })} />
+          <SetpointRow label="C₂H₄ Low Limit:" value={cur.c2h4Low ?? 0.5} unit="ppm" step={0.1} min={0} max={50} readOnly={readOnly} onChange={v => update({ c2h4Low: parseFloat(v) || 0 })} />
 
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">Humidity Limits</p>
-          <SetpointRow label="Humidity High Limit:" value={cur.humidHigh ?? 90} unit="%" step={1} min={0} max={100} readOnly={readOnly} onChange={v => update({ humidHigh: parseFloat(v) || 0 })} />
-          <SetpointRow label="Humidity Low Limit:" value={cur.humidLow ?? 30} unit="%" step={1} min={0} max={100} readOnly={readOnly} onChange={v => update({ humidLow: parseFloat(v) || 0 })} />
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">CO₂ Limits</p>
+          <SetpointRow label="CO₂ High Limit:" value={cur.co2High ?? 2000} unit="ppm" step={100} min={0} max={50000} readOnly={readOnly} onChange={v => update({ co2High: parseFloat(v) || 0 })} />
+          <SetpointRow label="CO₂ Low Limit:" value={cur.co2Low ?? 500} unit="ppm" step={100} min={0} max={50000} readOnly={readOnly} onChange={v => update({ co2Low: parseFloat(v) || 0 })} />
         </div>
       </div>
 
