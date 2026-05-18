@@ -113,12 +113,15 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
 function SetpointRow({ label, value, unit, step, min, max, onChange, readOnly }: {
   label: string; value: number; unit: string; step?: number; min?: number; max?: number; onChange: (v: string) => void; readOnly?: boolean
 }) {
+  const [raw, setRaw] = useState(String(value))
+  useEffect(() => { setRaw(String(value)) }, [value])
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
       <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">{label}</label>
       <div className="flex items-center gap-2">
-        <input type="text" inputMode="decimal" value={value}
-          onChange={e => { const raw = e.target.value; if (raw === '' || raw === '-' || raw === '-.' || raw === '-0') { onChange(raw); return; } if (!/^-?\d*\.?\d*$/.test(raw)) return; const v = parseFloat(raw); if (isNaN(v)) return; if (min !== undefined && v < min) return; if (max !== undefined && v > max) return; onChange(raw) }}
+        <input type="text" inputMode="decimal" value={raw}
+          onChange={e => { const r = e.target.value; if (r === '' || r === '-' || r === '.' || r === '-.' || r === '-0' || /^-?\d*\.?\d*$/.test(r)) { setRaw(r); const v = parseFloat(r); if (!isNaN(v)) { if (min !== undefined && v < min) return; if (max !== undefined && v > max) return; onChange(r); } } }}
+          onBlur={() => { const v = parseFloat(raw); if (isNaN(v)) { setRaw(String(value)); } else { setRaw(String(v)); } }}
           readOnly={readOnly} disabled={readOnly}
           className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
         <span className="bg-[#2B8DB8] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">{unit}</span>
