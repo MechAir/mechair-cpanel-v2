@@ -118,7 +118,7 @@ function SetpointRow({ label, value, unit, step, min, max, onChange, readOnly }:
       <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">{label}</label>
       <div className="flex items-center gap-2">
         <input type="number" inputMode="numeric" value={value} step={step ?? 1} min={min} max={max}
-          onChange={e => { const v = parseFloat(e.target.value); if (isNaN(v)) return; if (min !== undefined && v < min) return; if (max !== undefined && v > max) return; onChange(String(v)) }}
+          onChange={e => { const v = step && step < 1 ? parseFloat(e.target.value) : parseInt(e.target.value, 10); if (isNaN(v)) return; if (min !== undefined && v < min) return; if (max !== undefined && v > max) return; onChange(String(v)) }}
           readOnly={readOnly} disabled={readOnly}
           className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
         <span className="bg-[#2B8DB8] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">{unit}</span>
@@ -224,8 +224,9 @@ function EmsTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoom
 <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
             <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">C2H4 Trigger Diff:</label>
             <div className="flex items-center gap-2">
-              <input type="number" inputMode="decimal" step={0.1} min={0} max={50} value={cur.c2h4TriggerDiff} readOnly={readOnly} disabled={readOnly}
-                onChange={e => { const v = parseFloat(parseFloat(e.target.value).toFixed(1)); if (isNaN(v) || v < 0 || v > 50) return; setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], c2h4TriggerDiff: v } })) }}
+              <input type="text" inputMode="decimal" value={cur.c2h4TriggerDiff} readOnly={readOnly} disabled={readOnly}
+                onChange={e => { const raw = e.target.value; if (raw === '' || raw === '0' || raw === '0.' || /^\d*\.?\d?$/.test(raw)) { const v = parseFloat(raw); if (raw === '' || raw === '0' || raw === '0.') { setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], c2h4TriggerDiff: raw as any } })); return; } if (!isNaN(v) && v >= 0 && v <= 50) setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], c2h4TriggerDiff: parseFloat(v.toFixed(1)) } })) } }}
+                onBlur={e => { const v = parseFloat(e.target.value); setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], c2h4TriggerDiff: isNaN(v) ? 0 : parseFloat(v.toFixed(1)) } })) }}
                 className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
               <span className="bg-[#2B8DB8] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">ppm</span>
             </div>
