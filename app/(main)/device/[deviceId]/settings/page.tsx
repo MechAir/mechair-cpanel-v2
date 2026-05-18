@@ -137,7 +137,7 @@ function TimingRow({ label, field, onChange, wide, readOnly, max }: {
       <label className={`text-gray-700 text-sm sm:text-base font-medium sm:shrink-0 ${wide ? 'sm:w-56' : 'sm:w-48'}`}>{label}</label>
       <div className="flex items-center gap-2">
         <input type="number" min={0} max={max ?? 999} value={field.value}
-          onChange={e => { const v = parseFloat(e.target.value); if (v < 0 || v > (max ?? 999)) return; onChange({ value: e.target.value === '' ? 0 : v }) }}
+          onChange={e => { const v = parseInt(e.target.value, 10); if (isNaN(v) || v < 0 || v > (max ?? 999)) return; onChange({ value: v }) }}
           readOnly={readOnly} disabled={readOnly}
           className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
         <div className="relative">
@@ -519,8 +519,9 @@ function RecipeDetail({ recipe, isNew, saving, saved, onBack, onSave, onDelete }
             {steps.map((step, i) => (
               <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                 <td className="py-2 px-4 text-center font-semibold text-gray-700">{i === steps.length - 1 ? 'Final>' : i + 1}</td>
-                <td className="py-2 px-4 text-center">{i === steps.length - 1 ? <span className="font-bold text-[#2B8DB8]">Final</span> : <input type="number" min={0} max={30} value={step.days} onChange={e => { const v = Number(e.target.value); if (v < 0 || v > 30) return; updateStep(i, 'days', v) }} className="w-16 text-center rounded-lg border-2 border-[#2B8DB8] px-2 py-1 text-sm font-semibold bg-gray-50 focus:outline-none" />}</td>
-                <td className="py-2 px-4 text-center"><input type="number" min={0} max={50} step={0.1} value={step.c2h4_ppm} onChange={e => { const v = Number(e.target.value); if (v < 0 || v > 50) return; updateStep(i, 'c2h4_ppm', v) }} className="w-20 text-center rounded-lg border-2 border-[#2B8DB8] px-2 py-1 text-sm font-semibold bg-gray-50 focus:outline-none" /></td>
+                <td className="py-2 px-4 text-center">{i === steps.length - 1 ? <span className="font-bold text-[#2B8DB8]">Final</span> : <input type="number" min={0} max={30} value={step.days} onChange={e => { const v = parseInt(e.target.value, 10); if (isNaN(v) || v < 0 || v > 30) return; updateStep(i, 'days', v) }}
+ className="w-16 text-center rounded-lg border-2 border-[#2B8DB8] px-2 py-1 text-sm font-semibold bg-gray-50 focus:outline-none" />}</td>
+                <td className="py-2 px-4 text-center"><input type="number" min={0} max={50} step={0.1} value={step.c2h4_ppm} onChange={e => { const v = parseFloat(parseFloat(e.target.value).toFixed(1)); if (isNaN(v) || v < 0 || v > 50) return; updateStep(i, 'c2h4_ppm', v) }} className="w-20 text-center rounded-lg border-2 border-[#2B8DB8] px-2 py-1 text-sm font-semibold bg-gray-50 focus:outline-none" /></td>
                 <td className="py-2 px-3 text-center">{steps.length > 1 && <button onClick={() => setSteps(steps.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 font-bold text-xs">✕</button>}</td>
               </tr>
             ))}
@@ -1325,8 +1326,8 @@ function EmsLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: EmsRoomT
         {/* ── Right: C₂H₄ & CO₂ Limits ── */}
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">C₂H₄ Limits</p>
-          <SetpointRow label="C₂H₄ High Limit:" value={cur.c2h4High ?? 5} unit="ppm" step={0.1} min={0} max={50} readOnly={readOnly} onChange={v => update({ c2h4High: parseFloat(v) || 0 })} />
-          <SetpointRow label="C₂H₄ Low Limit:" value={cur.c2h4Low ?? 0.5} unit="ppm" step={0.1} min={0} max={50} readOnly={readOnly} onChange={v => update({ c2h4Low: parseFloat(v) || 0 })} />
+          <SetpointRow label="C₂H₄ High Limit:" value={cur.c2h4High ?? 5} unit="ppm" step={0.1} min={0} max={50} readOnly={readOnly} onChange={v => update({ c2h4High: parseFloat(parseFloat(v).toFixed(1)) || 0 })} />
+          <SetpointRow label="C₂H₄ Low Limit:" value={cur.c2h4Low ?? 0.5} unit="ppm" step={0.1} min={0} max={50} readOnly={readOnly} onChange={v => update({ c2h4Low: parseFloat(parseFloat(v).toFixed(1)) || 0 })} />
 
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">CO₂ Limits</p>
           <SetpointRow label="CO₂ High Limit:" value={cur.co2High ?? 2000} unit="ppm" step={100} min={0} max={50000} readOnly={readOnly} onChange={v => update({ co2High: parseFloat(v) || 0 })} />
