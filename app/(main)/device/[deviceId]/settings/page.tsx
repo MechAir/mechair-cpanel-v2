@@ -117,9 +117,8 @@ function SetpointRow({ label, value, unit, step, min, max, onChange, readOnly }:
     <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
       <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">{label}</label>
       <div className="flex items-center gap-2">
-        <input type="number" value={value} step={step ?? 1} min={min} max={max}
-          onChange={e => { const raw = e.target.value; if (raw === '' || raw === '-') return; const v = step && step < 1 ? parseFloat(raw) : parseInt(raw, 10); if (isNaN(v)) return; if (min !== undefined && v < min) return; if (max !== undefined && v > max) return; onChange(String(v)) }}
-          onBlur={e => { if (e.target.value === '' || e.target.value === '-') onChange('0') }}
+        <input type="number" inputMode="numeric" value={value} step={step ?? 1} min={min} max={max}
+          onChange={e => { if (e.target.value === '' || e.target.value === '-') { onChange('0'); return; } const v = step && step < 1 ? parseFloat(e.target.value) : parseInt(e.target.value, 10); if (isNaN(v)) return; if (min !== undefined && v < min) return; if (max !== undefined && v > max) return; onChange(String(v)) }}
           readOnly={readOnly} disabled={readOnly}
           className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
         <span className="bg-[#2B8DB8] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">{unit}</span>
