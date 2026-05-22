@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useParams } from 'next/navigation'
-import { isAdmin } from '@/utils/auth'
+import { isAdmin, isSupervisor } from '@/utils/auth'
 import { getDeviceType } from '@/utils/deviceTypes'
 
 export default function Sidebar() {
@@ -31,6 +31,9 @@ export default function Sidebar() {
 
   if (!admin) {
     menuItems = menuItems.filter(item => item.name !== 'Devices')
+  }
+  if (isSupervisor()) {
+    menuItems = menuItems.filter(item => item.name !== 'Settings')
   }
 
   const isActive = (href: string) => {
