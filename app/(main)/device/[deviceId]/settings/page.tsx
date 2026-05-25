@@ -876,6 +876,23 @@ function CsmUnitTimeTab({ deviceId, readOnly }: { deviceId: string; readOnly?: b
       .finally(() => setLoading(false))
   }, [deviceId])
 
+  useIoT(
+    [`devices/${deviceId}/settings/timings`],
+    useCallback(({ payload }) => {
+      try {
+        const s = payload?.settings ?? payload
+        if (s && typeof s === 'object' && (s.compDelayValue !== undefined || s.cycleTimeValue !== undefined)) {
+          setSettings(prev => ({
+            compDelayValue: s.compDelayValue ?? prev.compDelayValue,
+            compDelayUnit: s.compDelayUnit ?? prev.compDelayUnit,
+            cycleTimeValue: s.cycleTimeValue ?? prev.cycleTimeValue,
+            cycleTimeUnit: s.cycleTimeUnit ?? prev.cycleTimeUnit,
+          }))
+        }
+      } catch (_e) { /* ignore bad payloads */ }
+    }, [])
+  )
+
   const handleSave = async () => {
     try {
       setSaving(true)
