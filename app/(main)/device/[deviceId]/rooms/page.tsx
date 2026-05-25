@@ -304,7 +304,7 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4 border border-gray-100">
-        <h2 className="text-base font-bold text-gray-900 mb-4">Manual Dosing</h2>
+        <h2 className="text-base font-bold text-gray-900 mb-4">{(isMlh || isCsm) ? 'Manual Start' : 'Manual Dosing'}</h2>
         {changedRooms.length === 0 ? (
           <p className="text-sm text-gray-500 mb-6">No changes staged. Toggle relays on a room first.</p>
         ) : (
@@ -953,7 +953,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
             <div className="relative">
               <button onClick={() => setShowManualDosing(true)}
                 className={`px-4 sm:px-8 py-2.5 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-colors text-sm sm:text-lg border-2 ${!isAuto ? 'bg-white border-[#5A7C8C] text-[#5A7C8C] hover:bg-[#5A7C8C] hover:text-white' : 'bg-white border-gray-200 text-gray-400 cursor-default'}`}>
-                Manual Dosing
+                {(isMlh || isCsm) ? 'Manual Start' : 'Manual Dosing'}
               </button>
               {!isAuto && pendingManualCount > 0 && (
                 <span className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center bg-amber-500 text-white text-xs font-bold rounded-full">{pendingManualCount}</span>
