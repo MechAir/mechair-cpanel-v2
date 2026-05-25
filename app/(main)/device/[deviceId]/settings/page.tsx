@@ -62,7 +62,7 @@ interface CsmManualSettings {
   unit1CompOnTime: TimingField; unit1ExhaustOnTime: TimingField
   unit2CompOnTime: TimingField; unit2ExhaustOnTime: TimingField
 }
-interface CsmUnitTimeSettings { unitTimeValue: number; unitTimeUnit: TimeUnit }
+interface CsmUnitTimeSettings { compDelayValue: number; compDelayUnit: TimeUnit; cycleTimeValue: number; cycleTimeUnit: TimeUnit }
 interface CsmCalibrationSettings { tempOffset: number; humidityOffset: number }
 interface CsmLimitsSettings {
   recipientEmails: string[]; emailCooldown: TimingField
@@ -75,7 +75,7 @@ const defaultCsmManual: CsmManualSettings = {
   unit1CompOnTime: { value: 30, unit: 'sec' }, unit1ExhaustOnTime: { value: 30, unit: 'sec' },
   unit2CompOnTime: { value: 30, unit: 'sec' }, unit2ExhaustOnTime: { value: 30, unit: 'sec' },
 }
-const defaultCsmUnitTime: CsmUnitTimeSettings = { unitTimeValue: 30, unitTimeUnit: 'min' }
+const defaultCsmUnitTime: CsmUnitTimeSettings = { compDelayValue: 4, compDelayUnit: 'hr', cycleTimeValue: 4, cycleTimeUnit: 'hr' }
 const defaultCsmCalibration: CsmCalibrationSettings = { tempOffset: 0, humidityOffset: 0 }
 const defaultCsmLimits: CsmLimitsSettings = {
   recipientEmails: [], emailCooldown: { value: 30, unit: 'min' },
@@ -861,8 +861,14 @@ function CsmUnitTimeTab({ deviceId, readOnly }: { deviceId: string; readOnly?: b
     apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`)
       .then(data => {
         try {
-          if (data?.settings && typeof data.settings === 'object' && data.settings.unitTimeValue !== undefined) {
-            setSettings({ unitTimeValue: data.settings.unitTimeValue, unitTimeUnit: data.settings.unitTimeUnit || 'min' })
+          const s = data?.settings
+          if (s && typeof s === 'object') {
+            setSettings({
+              compDelayValue: s.compDelayValue ?? s.unitTimeValue ?? 4,
+              compDelayUnit: s.compDelayUnit ?? s.unitTimeUnit ?? 'hr',
+              cycleTimeValue: s.cycleTimeValue ?? 4,
+              cycleTimeUnit: s.cycleTimeUnit ?? 'hr',
+            })
           }
         } catch (_e) { /* ignore */ }
       })
@@ -873,9 +879,14 @@ function CsmUnitTimeTab({ deviceId, readOnly }: { deviceId: string; readOnly?: b
   const handleSave = async () => {
     try {
       setSaving(true)
-      // Merge with existing timings so we don't overwrite setpoints
       const existing = await apiGet<{ settings: any }>(`/devices/${deviceId}/settings/timings`).catch(() => ({ settings: {} }))
-      const merged = { ...((existing as any)?.settings || {}), unitTimeValue: settings.unitTimeValue, unitTimeUnit: settings.unitTimeUnit }
+      const merged = {
+        ...((existing as any)?.settings || {}),
+        compDelayValue: settings.compDelayValue,
+        compDelayUnit: settings.compDelayUnit,
+        cycleTimeValue: settings.cycleTimeValue,
+        cycleTimeUnit: settings.cycleTimeUnit,
+      }
       await apiPost(`/devices/${deviceId}/settings/timings`, { settings: merged })
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
@@ -884,9 +895,11 @@ function CsmUnitTimeTab({ deviceId, readOnly }: { deviceId: string; readOnly?: b
   if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
   return (
     <div className="px-3 sm:px-8 py-4 sm:py-6 space-y-5">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Unit Run Time Selection</p>
-      <TimingRow label="Unit Time:" field={{ value: settings.unitTimeValue, unit: settings.unitTimeUnit }} wide readOnly={readOnly}
-        onChange={u => setSettings(p => ({ ...p, ...(u.value !== undefined ? { unitTimeValue: u.value } : {}), ...(u.unit !== undefined ? { unitTimeUnit: u.unit } : {}) }))} />
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Timing Selection</p>
+      <TimingRow label="Comp Delay Time:" field={{ value: settings.compDelayValue, unit: settings.compDelayUnit }} wide readOnly={readOnly}
+        onChange={u => setSettings(p => ({ ...p, ...(u.value !== undefined ? { compDelayValue: u.value } : {}), ...(u.unit !== undefined ? { compDelayUnit: u.unit } : {}) }))} />
+      <TimingRow label="Cycle Time:" field={{ value: settings.cycleTimeValue, unit: settings.cycleTimeUnit }} wide readOnly={readOnly}
+        onChange={u => setSettings(p => ({ ...p, ...(u.value !== undefined ? { cycleTimeValue: u.value } : {}), ...(u.unit !== undefined ? { cycleTimeUnit: u.unit } : {}) }))} />
       {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
   )
@@ -1408,7 +1421,7 @@ export default function SettingsPage() {
   const csmTabs: { key: CsmTabType; label: string; short: string }[] = [
     { key: 'timings', label: 'Setpoint & Timings', short: 'Setpoints' },
     { key: 'manual', label: 'Manual Settings', short: 'Manual' },
-    { key: 'unit-time', label: 'Unit Time Selection', short: 'Unit Time' },
+    { key: 'unit-time', label: 'Timing Selection', short: 'Timing' },
     { key: 'calibration', label: 'Calibration', short: 'Calibrate' },
     { key: 'limits', label: 'Email SMS & Hooter', short: 'Limits' },
   ]
