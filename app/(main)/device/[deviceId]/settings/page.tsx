@@ -137,7 +137,7 @@ function TimingRow({ label, field, onChange, wide, readOnly, max }: {
       <label className={`text-gray-700 text-sm sm:text-base font-medium sm:shrink-0 ${wide ? 'sm:w-56' : 'sm:w-48'}`}>{label}</label>
       <div className="flex items-center gap-2">
         <input type="number" min={0} max={max ?? 999} value={field.value}
-          onChange={e => { const v = parseInt(e.target.value, 10); if (isNaN(v) || v < 0 || v > (max ?? 999)) return; onChange({ value: v }) }}
+          onChange={e => { if (e.target.value === '') { onChange({ value: 0 }); return; } const v = parseInt(e.target.value, 10); if (isNaN(v) || v < 0 || v > (max ?? 999)) return; onChange({ value: v }) }}
           readOnly={readOnly} disabled={readOnly}
           className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#2B8DB8] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
         <div className="relative">
