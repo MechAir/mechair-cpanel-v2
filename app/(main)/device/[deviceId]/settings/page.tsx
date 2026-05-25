@@ -941,6 +941,21 @@ function CsmCalibrationTab({ deviceId, readOnly }: { deviceId: string; readOnly?
       .finally(() => setLoading(false))
   }, [deviceId])
 
+  useIoT(
+    [`devices/${deviceId}/settings/timings`],
+    useCallback(({ payload }) => {
+      try {
+        const s = payload?.settings ?? payload
+        if (s && typeof s === 'object' && (s.tempOffset !== undefined || s.humidityOffset !== undefined)) {
+          setSettings(prev => ({
+            tempOffset: s.tempOffset ?? prev.tempOffset,
+            humidityOffset: s.humidityOffset ?? prev.humidityOffset,
+          }))
+        }
+      } catch (_e) { /* ignore bad payloads */ }
+    }, [])
+  )
+
   const handleSave = async () => {
     try {
       setSaving(true)
