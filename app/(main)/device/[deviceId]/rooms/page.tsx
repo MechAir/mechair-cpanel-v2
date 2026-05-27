@@ -394,6 +394,31 @@ function ResetModal({ rooms, pendingResetChanges, onConfirm, onCancel }: {
   )
 }
 
+// ── CSM Unit Selection Modal ──────────────────────────────────────────────────
+function CsmUnitSelectModal({ rooms, onSelect, onCancel }: {
+  rooms: RoomData[]; onSelect: (unitId: string) => void; onCancel: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <h2 className="text-base font-bold text-gray-900 mb-4">Select Starting Unit</h2>
+        <p className="text-sm text-gray-500 mb-4">Which unit should start first?</p>
+        <div className="flex flex-col gap-3">
+          {rooms.map(room => (
+            <button key={room.id} onClick={() => onSelect(room.id)}
+              className="w-full px-4 py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition-colors text-lg">
+              {room.name.replace(/Room/gi, 'Unit')}
+            </button>
+          ))}
+        </div>
+        <button onClick={onCancel} className="mt-4 w-full px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function DeviceRoomsPage() {
   const router = useRouter()
@@ -418,6 +443,7 @@ export default function DeviceRoomsPage() {
   const [showModeConfirm, setShowModeConfirm] = useState(false)
   const [showManualDosing, setShowManualDosing] = useState(false)
   const [showReset, setShowReset] = useState(false)
+  const [showCsmUnitSelect, setShowCsmUnitSelect] = useState(false)
 
   // Pending changes — relay1 = SOV (EMS) or Compressor (MLH), relay2 = Exhaust (EMS) or Cooling SOV (MLH)
   const [pendingRelay1, setPendingRelay1] = useState<Record<string, boolean>>({})
@@ -773,6 +799,21 @@ export default function DeviceRoomsPage() {
     pushToast({ type: 'success', title: 'Changes Applied', message: `${unitLabel} settings saved.` })
   }
 
+  const handleCsmUnitSelect = async (unitId: string) => {
+    setShowCsmUnitSelect(false)
+    const updated = rooms.map(r => ({ ...r, isOn: r.id === unitId }))
+    setRooms(updated); setPendingResetChanges({})
+    await updateRoomsOnServer(updated)
+    pushToast({ type: 'success', title: 'Started', message: `${rooms.find(r => r.id === unitId)?.name?.replace(/Room/gi, 'Unit') ?? 'Unit'} started.` })
+  }
+
+  const handleCsmStop = async () => {
+    const updated = rooms.map(r => ({ ...r, isOn: false }))
+    setRooms(updated); setPendingResetChanges({})
+    await updateRoomsOnServer(updated)
+    pushToast({ type: 'success', title: 'Stopped', message: 'All units stopped.' })
+  }
+
   const handleModeConfirm = async () => {
     setShowModeConfirm(false)
     const newMode = isAuto ? 'manual' : 'auto'
@@ -908,6 +949,11 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
           onConfirm={handleResetConfirm} onCancel={() => setShowReset(false)} />
       )}
 
+      {showCsmUnitSelect && (
+        <CsmUnitSelectModal rooms={rooms}
+          onSelect={handleCsmUnitSelect} onCancel={() => setShowCsmUnitSelect(false)} />
+      )}
+
       <div>
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm mb-5 sm:mb-8">
@@ -928,12 +974,12 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
             <div className="relative">
               {isCsm ? (
                 <button onClick={() => {
-                  // Start/Stop toggle: if any unit is on → stop all, else start all
                   const anyOn = rooms.some(r => r.isOn)
-                  const changes: Record<string, Partial<RoomData>> = {}
-                  rooms.forEach(r => { changes[r.id] = { isOn: !anyOn } })
-                  setPendingResetChanges(changes)
-                  setShowReset(true)
+                  if (anyOn) {
+                    handleCsmStop()
+                  } else {
+                    setShowCsmUnitSelect(true)
+                  }
                 }}
                   className={`px-4 sm:px-8 py-2.5 sm:py-4 border-2 rounded-xl sm:rounded-2xl font-semibold transition-colors text-sm sm:text-lg ${rooms.some(r => r.isOn) ? 'bg-red-500 border-red-500 text-white hover:bg-red-600' : 'bg-green-500 border-green-500 text-white hover:bg-green-600'}`}>
                   {rooms.some(r => r.isOn) ? '■ Stop' : '▶ Start'}
