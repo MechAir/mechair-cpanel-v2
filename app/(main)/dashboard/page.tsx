@@ -304,7 +304,7 @@ function DeviceCard({
             </p>
             {(() => { const dt = getDeviceType(device.deviceId); return (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white mt-0.5 inline-block" style={{ backgroundColor: dt.color }}>
-                                  <span>{detectedType.label} · {detectedType.rooms} {detectedType.roomLabel?.toLowerCase() === 'machine' ? 'machines' : 'rooms'}</span></>
+                {dt.shortLabel} · {dt.rooms} {dt.roomLabel?.toLowerCase() === 'machine' ? 'machines' : dt.roomLabel?.toLowerCase() === 'unit' ? 'units' : 'rooms'}
               </span>
             )})()}
           </div>
