@@ -842,10 +842,10 @@ function CsmManualTab({ deviceId, readOnly }: { deviceId: string; readOnly?: boo
     <div className="px-3 sm:px-8 py-4 sm:py-6 space-y-5">
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Unit 1</p>
       <TimingRow label="Unit 1 Comp ON:" field={settings.unit1CompOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit1CompOnTime: { ...p.unit1CompOnTime, ...u } }))} />
-      <TimingRow label="Unit 1 Exhaust ON:" field={settings.unit1ExhaustOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit1ExhaustOnTime: { ...p.unit1ExhaustOnTime, ...u } }))} />
+      <TimingRow label="Unit 1 Indoor Fan:" field={settings.unit1ExhaustOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit1ExhaustOnTime: { ...p.unit1ExhaustOnTime, ...u } }))} />
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">Unit 2</p>
       <TimingRow label="Unit 2 Comp ON:" field={settings.unit2CompOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit2CompOnTime: { ...p.unit2CompOnTime, ...u } }))} />
-      <TimingRow label="Unit 2 Exhaust ON:" field={settings.unit2ExhaustOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit2ExhaustOnTime: { ...p.unit2ExhaustOnTime, ...u } }))} />
+      <TimingRow label="Unit 2 Indoor Fan:" field={settings.unit2ExhaustOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, unit2ExhaustOnTime: { ...p.unit2ExhaustOnTime, ...u } }))} />
       {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
   )
