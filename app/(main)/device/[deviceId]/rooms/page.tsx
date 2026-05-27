@@ -306,7 +306,7 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
       <div className="bg-white rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4 border border-gray-100">
         <h2 className="text-base font-bold text-gray-900 mb-4">{(isMlh || isCsm) ? 'Manual Start' : 'Manual Dosing'}</h2>
         {changedRooms.length === 0 ? (
-          <p className="text-sm text-gray-500 mb-6">No changes staged. Toggle relays on a room first.</p>
+                    <p className="text-sm text-gray-500 mb-6">No changes staged. Toggle relays on a {isCsm ? 'unit' : isMlh ? 'machine' : 'room'} first.</p>
         ) : (
           <div className="space-y-3 mb-6">
             {changedRooms.map(room => {
@@ -372,7 +372,7 @@ function ResetModal({ rooms, pendingResetChanges, onConfirm, onCancel }: {
                   <span className="font-medium text-gray-700 block mb-1.5">{room.name}</span>
                   {pending.isOn !== undefined && (
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span>Room</span>
+                      <span>{room.name.split(' ')[0]}</span>
                       <span className={`px-1.5 py-0.5 rounded font-semibold ${room.isOn ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{room.isOn ? 'ON' : 'OFF'}</span>
                       <span>→</span>
                       <span className={`px-1.5 py-0.5 rounded font-semibold ${pending.isOn ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pending.isOn ? 'ON' : 'OFF'}</span>
