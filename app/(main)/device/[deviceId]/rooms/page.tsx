@@ -679,7 +679,7 @@ export default function DeviceRoomsPage() {
 
   // Room click — toggle isOn in auto mode
   const handleRoomClick = (roomId: string) => {
-    if (!isAuto || !canEditRooms) return
+    if (!isAuto || !canEditRooms || isCsm) return
     const room = rooms.find(r => r.id === roomId)
     if (!room) return
     const cur = pendingResetChanges[roomId]?.isOn !== undefined ? pendingResetChanges[roomId].isOn! : room.isOn
@@ -1033,7 +1033,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
             const rKey = `r${room.id.replace('room-', '')}`
             return enabledRooms[roomKey] !== false && enabledRooms[rKey] !== false
           }).map(room => (
-            <div key={room.id} onClick={() => handleRoomClick(room.id)} className={isAuto && canEditRooms ? 'cursor-pointer' : 'cursor-default'}>
+            <div key={room.id} onClick={() => handleRoomClick(room.id)} className={isAuto && canEditRooms && !isCsm ? 'cursor-pointer' : 'cursor-default'}>
               {isCsm ? (
                 <CsmUnitCard room={room} isManual={!isAuto}
                   hasPendingComp={!isAuto && room.id in pendingRelay1}
