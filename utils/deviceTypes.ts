@@ -42,7 +42,7 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
     roomLabel: 'Machine',
     sensors: ['temp', 'humidity'],
     relays: ['compressor', 'sov'],
-    settingsTabs: ['timings', 'manual', 'enabled-rooms', 'limits'],
+    settingsTabs: ['timings', 'manual', 'calibration', 'enabled-rooms', 'limits'],
   },
   csm: {
     prefix: 'csm',
