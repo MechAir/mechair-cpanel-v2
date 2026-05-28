@@ -40,6 +40,13 @@ const MLH_METRIC_META = {
   C2H4: { unit: 'ppm', label: 'C₂H₄', color: '#10B981', triggerColor: '#EF4444', decimals: 2 },
 }
 
+const CSM_METRIC_META = {
+  temp: { unit: '°C', label: 'Temperature', color: '#7C3AED', triggerColor: '#EF4444', decimals: 1 },
+  CO2: { unit: '%', label: 'Humidity', color: '#0891b2', triggerColor: '#EF4444', decimals: 1 },
+  O2: { unit: '%', label: 'O₂', color: '#818CF8', triggerColor: '#EF4444', decimals: 2 },
+  C2H4: { unit: 'ppm', label: 'C₂H₄', color: '#10B981', triggerColor: '#EF4444', decimals: 2 },
+}
+
 // This gets set once when the page loads based on device type
 let METRIC_META = EMS_METRIC_META
 
@@ -1277,9 +1284,12 @@ export default function DetailedGraphsPage() {
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   const isAlarmPage = roomId === 's7' || roomId === 'alarm'
   const isMlhDevice = deviceId.toLowerCase().startsWith('mlh')
+  const isCsmDevice = deviceId.toLowerCase().startsWith('csm')
 
-  // Use MLH metric labels (Humidity instead of Carbon, etc.)
-  if (isMlhDevice) {
+  // Use MLH/CSM metric labels (Humidity instead of Carbon, etc.)
+  if (isCsmDevice) {
+    METRIC_META = CSM_METRIC_META
+  } else if (isMlhDevice) {
     METRIC_META = MLH_METRIC_META
   } else {
     METRIC_META = EMS_METRIC_META
@@ -1641,9 +1651,9 @@ export default function DetailedGraphsPage() {
         <div className="flex items-center gap-2 text-sm flex-wrap">
           <button onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-gray-700">Home</button>
           <span className="text-gray-300">›</span>
-          <button onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'}`)} className="text-gray-400 hover:text-gray-700">{deviceId}</button>
+          <button onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : deviceId.toLowerCase().startsWith('csm') ? 'units' : 'rooms'}`)} className="text-gray-400 hover:text-gray-700">{deviceId}</button>
           <span className="text-gray-300">›</span>
-<span className="text-gray-700 font-semibold">{isAlarmPage ? 'Alarm Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Graphs</span>
+<span className="text-gray-700 font-semibold">{isAlarmPage ? 'Alarm Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : deviceId.toLowerCase().startsWith('csm') ? 'Unit' : 'Room'} ${roomId}`} — Graphs</span>
         </div>
         {timeRange.mode === 'live' && (
           <div className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
@@ -1657,14 +1667,14 @@ export default function DetailedGraphsPage() {
       {/* Title + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 sm:mb-6 gap-3 sm:gap-4">
         <div>
-<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAlarmPage ? 'Alarm' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId}`} — Detailed Metrics</h2>
+<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAlarmPage ? 'Alarm' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : deviceId.toLowerCase().startsWith('csm') ? 'Unit' : 'Room'} ${roomId}`} — Detailed Metrics</h2>
           <p className="text-gray-500 text-sm mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
             <span>
               {timeRange.mode === 'live'
                ? `Live · ${allData.temp.length} points`
                 : `Showing: ${RANGE_OPTIONS.find(r => r.key === timeRange.mode)?.label ?? 'Custom'}`}
             </span>
-            {!isMlhDevice && (
+            {!isMlhDevice && !isCsmDevice && (
             <span className="flex items-center gap-2 text-xs">
               {getDeviceType(deviceId).sensors.includes('co2') && (<>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: METRIC_META.CO2.triggerColor, display: 'inline-block' }} />
@@ -1680,6 +1690,7 @@ export default function DetailedGraphsPage() {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {!isCsmDevice && (
           <div className="flex gap-1.5 sm:gap-2">
             {deviceId.toLowerCase().startsWith('mlh') && (
               <button
@@ -1703,6 +1714,7 @@ export default function DetailedGraphsPage() {
               </button>
             ))}
           </div>
+          )}
           <RangeDropdown value={timeRange} onChange={setTimeRange} />
           <button
             onClick={() => setShowReport(true)}
@@ -1724,6 +1736,7 @@ export default function DetailedGraphsPage() {
       {(() => {
         const dt = getDeviceType(deviceId)
         const isMlh = dt.prefix === 'mlh'
+        const isCsm = dt.prefix === 'csm'
         const showC2H4 = dt.sensors.includes('c2h4')
         const showCO2 = dt.sensors.includes('co2')
         const showO2 = dt.sensors.includes('o2')
@@ -1744,7 +1757,7 @@ export default function DetailedGraphsPage() {
             isLoading={allData.loading} onExpand={() => setExpandedMetric('CO2')} />
         )
         if (showHumidity && !showO2) {
-          // MLH: humidity data is in CO2 slot, no triggers
+          // MLH/CSM: humidity data is in CO2 slot, no triggers
           topCards.push(
             <MetricGraph key="CO2" metricKey="CO2" data={allData.co2} triggers={emptyTriggers} labels={allData.labels}
               latestValue={timeRange.mode === 'live' ? latest[`${prefix}_CO2`] : allData.latestCO2}
@@ -1758,7 +1771,7 @@ export default function DetailedGraphsPage() {
           )
         }
 
-        // For MLH: only show temp and humidity in combined, filter out CO2/C2H4
+        // For MLH/CSM: only show temp and humidity in combined, filter out CO2/C2H4
         const filteredCombinedDataMap: Record<MetricKey, number[]> = { ...combinedDataMap }
         const filteredCombinedTriggerMap: Record<MetricKey, boolean[]> = { ...combinedTriggerMap }
 
@@ -1772,7 +1785,7 @@ export default function DetailedGraphsPage() {
               tall isLoading={allData.loading} onExpand={() => setExpandedMetric('temp')} />
             <CombinedGraph dataMap={filteredCombinedDataMap} triggerMap={filteredCombinedTriggerMap}
               labels={allData.labels} latest={latest} prefix={prefix} isLoading={allData.loading} onExpand={() => setExpandedMetric('combined')}
-              visibleMetrics={isMlh ? ['temp', 'CO2'] : undefined} />
+              visibleMetrics={(isMlh || isCsm) ? ['temp', 'CO2'] : undefined} />
           </div>
         </>)
       })()}
@@ -1798,7 +1811,7 @@ export default function DetailedGraphsPage() {
           latest={latest}
           prefix={prefix}
           onClose={() => setExpandedMetric(null)}
-          visibleMetrics={getDeviceType(deviceId).prefix === 'mlh' ? ['temp', 'CO2'] as MetricKey[] : undefined}
+          visibleMetrics={(getDeviceType(deviceId).prefix === 'mlh' || getDeviceType(deviceId).prefix === 'csm') ? ['temp', 'CO2'] as MetricKey[] : undefined}
         />
       )}
 
