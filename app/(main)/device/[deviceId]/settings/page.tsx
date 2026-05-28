@@ -26,9 +26,10 @@ interface RecipeStep { days: number; c2h4_ppm: number }
 interface Recipe { id: string; name: string; steps: RecipeStep[] }
 
 // MLH types
-type MlhTabType = 'timings' | 'manual' | 'enabled-rooms' | 'limits'
+type MlhTabType = 'timings' | 'manual' | 'calibration' | 'enabled-rooms' | 'limits'
 type MlhRoomType = string
 interface MlhRoomSettings {
+  compDelayTime: TimingField
   tempSetpoint: number; tempTriggerDiff: number
   humiditySetpoint: number; humidityTriggerDiff: number
 }
@@ -47,6 +48,7 @@ const defaultEmsPump: EmsPumpSettings = {
   pumpEnable: false, pumpOnTime: { value: 30, unit: 'sec' }, pumpOffTime: { value: 60, unit: 'sec' },
 }
 const defaultMlhSettings: MlhRoomSettings = {
+  compDelayTime: { value: 0, unit: 'sec' },
   tempSetpoint: 4.0, tempTriggerDiff: 1.0, humiditySetpoint: 90.0, humidityTriggerDiff: 5.0,
 }
 const defaultMlhManual: MlhManualSettings = {
@@ -544,6 +546,18 @@ function RecipeDetail({ recipe, isNew, saving, saved, onBack, onSave, onDelete }
 // MLH SETTINGS TABS
 // ═══════════════════════════════════════════════════════════════════════════════
 
+function parseMlhTimings(raw: any, prev: MlhRoomSettings): MlhRoomSettings {
+  return {
+    compDelayTime: raw.compDelayValue !== undefined
+      ? { value: raw.compDelayValue, unit: (['sec','min','hr'] as const)[raw.compDelayUnit ?? 0] }
+      : raw.compDelayTime ?? prev.compDelayTime,
+    tempSetpoint: raw.tempSetpoint ?? prev.tempSetpoint,
+    tempTriggerDiff: raw.tempTriggerDiff ?? prev.tempTriggerDiff,
+    humiditySetpoint: raw.humiditySetpoint ?? prev.humiditySetpoint,
+    humidityTriggerDiff: raw.humidityTriggerDiff ?? prev.humidityTriggerDiff,
+  }
+}
+
 function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomType; deviceId: string; readOnly?: boolean }) {
   const mlhRooms: MlhRoomType[] = ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Room 5', 'Room 6']
   const [settings, setSettings] = useState<Record<MlhRoomType, MlhRoomSettings>>(Object.fromEntries(mlhRooms.map(r => [r, { ...defaultMlhSettings }])) as Record<MlhRoomType, MlhRoomSettings>)
@@ -553,8 +567,18 @@ function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoom
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    apiGet<{ settings: Record<MlhRoomType, MlhRoomSettings> }>(`/devices/${deviceId}/settings/timings`)
-      .then(data => { if (data?.settings) setSettings(prev => ({ ...prev, ...data.settings })) })
+    apiGet<{ settings: Record<string, any> }>(`/devices/${deviceId}/settings/timings`)
+      .then(data => {
+        if (data?.settings) {
+          setSettings(prev => {
+            const updated = { ...prev }
+            mlhRooms.forEach(room => {
+              if (data.settings[room]) updated[room] = parseMlhTimings(data.settings[room], prev[room])
+            })
+            return updated
+          })
+        }
+      })
       .catch(() => setError('Failed to load setpoints.'))
       .finally(() => setLoading(false))
   }, [deviceId])
@@ -567,7 +591,7 @@ function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoom
         setSettings(prev => {
           const updated = { ...prev }
           mlhRooms.forEach(room => {
-            if (payload[room]) updated[room] = { ...prev[room], ...payload[room] }
+            if (payload[room]) updated[room] = parseMlhTimings(payload[room], prev[room])
           })
           return updated
         })
@@ -585,6 +609,10 @@ function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoom
   return (
     <div className="px-3 sm:px-8 py-4 sm:py-6">
       {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>}
+      <div className="space-y-5 mb-6">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Compressor</p>
+        <TimingRow label="Comp Delay Time:" field={cur.compDelayTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], compDelayTime: { ...p[activeRoom].compDelayTime, ...u } } }))} />
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-5">
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Temperature</p>
@@ -672,6 +700,92 @@ function MlhManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomT
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Manual Timings</p>
       <TimingRow label="Manual Compressor ON:" field={cur.manualCompressorOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualCompressorOnTime: { ...p[activeRoom].manualCompressorOnTime, ...u } } }))} />
       <TimingRow label="Manual SOV ON Time:" field={cur.manualSovOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualSovOnTime: { ...p[activeRoom].manualSovOnTime, ...u } } }))} />
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+function MlhCalibrationTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomType; deviceId: string; readOnly?: boolean }) {
+  const roomCount = getDeviceType(deviceId).rooms
+  const mlhRooms: MlhRoomType[] = [...Array.from({ length: roomCount }, (_, i) => `Room ${i + 1}`), 'Alarm']
+  const [settings, setSettings] = useState<Record<string, { tempOffset: number; humidityOffset: number }>>(
+    Object.fromEntries(mlhRooms.map(r => [r, { tempOffset: 0, humidityOffset: 0 }]))
+  )
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    apiGet<{ calibration: Record<string, any> }>(`/devices/${deviceId}/settings/calibration`)
+      .then(data => {
+        if (data?.calibration) {
+          setSettings(prev => {
+            const updated = { ...prev }
+            Object.entries(data.calibration).forEach(([key, val]: [string, any]) => {
+              if (key === 's7') {
+                updated['Alarm'] = { tempOffset: val.tempOffset ?? 0, humidityOffset: val.humidityOffset ?? 0 }
+              } else if (updated[key]) {
+                updated[key] = { tempOffset: val.tempOffset ?? 0, humidityOffset: val.humidityOffset ?? 0 }
+              }
+            })
+            return updated
+          })
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [deviceId])
+
+  useIoT(
+    [`devices/${deviceId}/settings/calibration`],
+    useCallback(({ payload }) => {
+      const incoming = payload?.calibration ?? payload
+      if (incoming) {
+        setSettings(prev => {
+          const updated = { ...prev }
+          Object.entries(incoming).forEach(([key, val]: [string, any]) => {
+            if (key === 's7') {
+              updated['Alarm'] = { tempOffset: val.tempOffset ?? 0, humidityOffset: val.humidityOffset ?? 0 }
+            } else if (updated[key]) {
+              updated[key] = { tempOffset: val.tempOffset ?? 0, humidityOffset: val.humidityOffset ?? 0 }
+            }
+          })
+          return updated
+        })
+      }
+    }, [])
+  )
+
+  const cur = settings[activeRoom] ?? { tempOffset: 0, humidityOffset: 0 }
+  const update = (patch: Partial<{ tempOffset: number; humidityOffset: number }>) =>
+    setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], ...patch } }))
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      // Transform for API: "Room 1"→"Room 1", "Alarm"→"s7"
+      const apiData: Record<string, any> = {}
+      Object.entries(settings).forEach(([key, val]) => {
+        if (key === 'Alarm') apiData['s7'] = val
+        else apiData[key] = val
+      })
+      await apiPost(`/devices/${deviceId}/settings/calibration`, { calibration: apiData })
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    } catch (_e) { setError('Failed to save.') } finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6">
+      {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>}
+      <div className="space-y-5">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{activeRoom === 'Alarm' ? 'Alarm (S7)' : activeRoom.replace('Room', 'Machine')} — Calibration Offsets</p>
+        <SetpointRow label="Temp Offset:" value={cur.tempOffset} unit="°C" step={0.1} min={-50} max={50} readOnly={readOnly}
+          onChange={v => update({ tempOffset: parseFloat(v) || 0 })} />
+        <SetpointRow label="Humidity Offset:" value={cur.humidityOffset} unit="%" step={0.1} min={-50} max={50} readOnly={readOnly}
+          onChange={v => update({ humidityOffset: parseFloat(v) || 0 })} />
+      </div>
       {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
   )
@@ -1447,6 +1561,7 @@ export default function SettingsPage() {
   const mlhTabs: { key: MlhTabType; label: string; short: string }[] = [
     { key: 'timings', label: 'Setpoint & Timings', short: 'Setpoints' },
     { key: 'manual', label: 'Manual Settings', short: 'Manual' },
+    { key: 'calibration', label: 'Calibration', short: 'Calibrate' },
     { key: 'enabled-rooms', label: 'Enable Machines', short: 'Machines' },
     { key: 'limits', label: 'Email & Hooter Limits', short: 'Limits' },
   ]
@@ -1468,6 +1583,7 @@ export default function SettingsPage() {
   const activeRoom = isMlh ? activeMlhRoom : activeEmsRoom
     const setActiveRoom = isMlh ? (r: any) => setActiveMlhRoom(r) : (r: any) => setActiveEmsRoom(r)
   const showRoomTabs = isCsm ? false : isMlh ? (activeMlhTab !== 'enabled-rooms' && activeMlhTab !== 'limits') : activeEmsTab !== 'recipes'
+  const showAlarmTab = isMlh && activeMlhTab === 'calibration'
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -1516,6 +1632,13 @@ export default function SettingsPage() {
                 {isMlh ? room.replace(/Room/gi, 'Machine') : room}
               </button>
             ))}
+            {showAlarmTab && (
+              <button onClick={() => setActiveRoom('Alarm' as any)}
+                className={`px-4 sm:px-6 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${activeRoom === 'Alarm' ? 'text-white shadow-md' : 'text-white hover:opacity-80'}`}
+                style={{ backgroundColor: activeRoom === 'Alarm' ? '#60a878' : '#9C27B0' }}>
+                Alarm
+              </button>
+            )}
           </div>
         )}
 
@@ -1529,6 +1652,7 @@ export default function SettingsPage() {
        {/* MLH tab content */}
         {isMlh && activeMlhTab === 'timings' && <MlhTimingsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'manual' && <MlhManualTab key={`mlh-manual-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {isMlh && activeMlhTab === 'calibration' && <MlhCalibrationTab key={`mlh-calib-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'enabled-rooms' && <MlhEnabledRoomsTab deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'limits' && <MlhLimitsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
 
