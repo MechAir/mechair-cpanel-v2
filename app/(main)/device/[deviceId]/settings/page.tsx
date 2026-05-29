@@ -601,8 +601,23 @@ function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoom
 
   const cur = settings[activeRoom]
   const handleSave = async () => {
-    try { setSaving(true); await apiPost(`/devices/${deviceId}/settings/timings`, { settings }); setSaved(true); setTimeout(() => setSaved(false), 2000) }
-    catch (_e) { setError('Failed to save.') } finally { setSaving(false) }
+    try {
+      setSaving(true)
+      const apiSettings: Record<string, any> = {}
+      const unitMap: Record<string, number> = { sec: 0, min: 1, hr: 2 }
+      Object.entries(settings).forEach(([room, s]) => {
+        apiSettings[room] = {
+          compDelayValue: s.compDelayTime.value,
+          compDelayUnit: unitMap[s.compDelayTime.unit] ?? 0,
+          tempSetpoint: s.tempSetpoint,
+          tempTriggerDiff: s.tempTriggerDiff,
+          humiditySetpoint: s.humiditySetpoint,
+          humidityTriggerDiff: s.humidityTriggerDiff,
+        }
+      })
+      await apiPost(`/devices/${deviceId}/settings/timings`, { settings: apiSettings })
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    } catch (_e) { setError('Failed to save.') } finally { setSaving(false) }
   }
 
   if (loading) return <div className="flex items-center justify-center gap-3 py-12 text-gray-500"><SpinnerIcon /> Loading…</div>
