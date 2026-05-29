@@ -799,8 +799,8 @@ function MlhCalibrationTab({ activeRoom, deviceId, readOnly }: { activeRoom: Mlh
         <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
           <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">Temp Offset:</label>
           <div className="flex items-center gap-2">
-            <input type="number" inputMode="decimal" step={0.1} min={-50} max={50} defaultValue={cur.tempOffset} key={`${activeRoom}-temp-${cur.tempOffset}`} readOnly={readOnly} disabled={readOnly}
-              onBlur={e => { const v = parseFloat(e.target.value); update({ tempOffset: isNaN(v) ? 0 : Math.max(-50, Math.min(50, v)) }) }}
+            <input type="number" inputMode="decimal" step={0.1} min={-40} max={60} defaultValue={cur.tempOffset} key={`${activeRoom}-temp-${cur.tempOffset}`} readOnly={readOnly} disabled={readOnly}
+              onBlur={e => { const v = parseFloat(e.target.value); update({ tempOffset: isNaN(v) ? 0 : Math.max(-40, Math.min(60, v)) }) }}
               className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#9C27B0] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#9C27B0]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
             <span className="bg-[#9C27B0] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">°C</span>
           </div>
@@ -808,8 +808,8 @@ function MlhCalibrationTab({ activeRoom, deviceId, readOnly }: { activeRoom: Mlh
         <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
           <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">Humidity Offset:</label>
           <div className="flex items-center gap-2">
-            <input type="number" inputMode="decimal" step={0.1} min={-50} max={50} defaultValue={cur.humidityOffset} key={`${activeRoom}-humid-${cur.humidityOffset}`} readOnly={readOnly} disabled={readOnly}
-              onBlur={e => { const v = parseFloat(e.target.value); update({ humidityOffset: isNaN(v) ? 0 : Math.max(-50, Math.min(50, v)) }) }}
+            <input type="number" inputMode="decimal" step={0.1} min={0} max={100} defaultValue={cur.humidityOffset} key={`${activeRoom}-humid-${cur.humidityOffset}`} readOnly={readOnly} disabled={readOnly}
+              onBlur={e => { const v = parseFloat(e.target.value); update({ humidityOffset: isNaN(v) ? 0 : Math.max(0, Math.min(100, v)) }) }}
               className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#9C27B0] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#9C27B0]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
             <span className="bg-[#9C27B0] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">%</span>
           </div>
