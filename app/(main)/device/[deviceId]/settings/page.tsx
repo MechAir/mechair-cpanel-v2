@@ -796,10 +796,24 @@ function MlhCalibrationTab({ activeRoom, deviceId, readOnly }: { activeRoom: Mlh
       {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>}
       <div className="space-y-5">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{activeRoom === 'Alarm' ? 'Alarm (S7)' : activeRoom.replace('Room', 'Machine')} — Calibration Offsets</p>
-        <SetpointRow label="Temp Offset:" value={cur.tempOffset} unit="°C" step={0.1} min={-50} max={50} readOnly={readOnly}
-          onChange={v => update({ tempOffset: parseFloat(v) || 0 })} />
-        <SetpointRow label="Humidity Offset:" value={cur.humidityOffset} unit="%" step={0.1} min={-50} max={50} readOnly={readOnly}
-          onChange={v => update({ humidityOffset: parseFloat(v) || 0 })} />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+          <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">Temp Offset:</label>
+          <div className="flex items-center gap-2">
+            <input type="number" inputMode="decimal" step={0.1} min={-50} max={50} defaultValue={cur.tempOffset} key={`${activeRoom}-temp-${cur.tempOffset}`} readOnly={readOnly} disabled={readOnly}
+              onBlur={e => { const v = parseFloat(e.target.value); update({ tempOffset: isNaN(v) ? 0 : Math.max(-50, Math.min(50, v)) }) }}
+              className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#9C27B0] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#9C27B0]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
+            <span className="bg-[#9C27B0] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">°C</span>
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+          <label className="text-gray-700 text-sm sm:text-base font-medium sm:w-48 sm:shrink-0">Humidity Offset:</label>
+          <div className="flex items-center gap-2">
+            <input type="number" inputMode="decimal" step={0.1} min={-50} max={50} defaultValue={cur.humidityOffset} key={`${activeRoom}-humid-${cur.humidityOffset}`} readOnly={readOnly} disabled={readOnly}
+              onBlur={e => { const v = parseFloat(e.target.value); update({ humidityOffset: isNaN(v) ? 0 : Math.max(-50, Math.min(50, v)) }) }}
+              className={`w-28 text-center text-lg font-semibold text-gray-800 border-2 border-[#9C27B0] rounded-xl py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-[#9C27B0]/40 bg-gray-50 ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`} />
+            <span className="bg-[#9C27B0] text-white text-sm font-bold px-4 py-2.5 rounded-xl min-w-[52px] text-center">%</span>
+          </div>
+        </div>
       </div>
       {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
