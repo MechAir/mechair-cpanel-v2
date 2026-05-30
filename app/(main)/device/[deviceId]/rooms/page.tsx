@@ -499,8 +499,8 @@ export default function DeviceRoomsPage() {
       const idx = room.id.replace('room-', '')
       const roomKey = `room${idx}`
 
-      if (isMlh) {
-        // MLH shape: { room1: { temp, humidity, compressor, sov }, ... }
+      if (isMlh || isCsm) {
+        // MLH/CSM shape: { room1: { temp, humidity, compressor, sov }, ... }
         const r = reading[roomKey]
         if (!r) return room
         return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid, compOn: r.compressor ?? room.compOn, sovOn: r.sov ?? room.sovOn }
