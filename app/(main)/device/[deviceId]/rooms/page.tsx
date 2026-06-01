@@ -246,23 +246,23 @@ function MlhRoomCard({ room, isManual, hasPendingComp, hasPendingSov, hasPending
   )
 }
 
-function CsmUnitCard({ room, isManual, hasPendingComp, hasPendingFan, hasPendingChange, onToggleComp, onToggleFan }: {
-  room: RoomData; isManual: boolean
+function CsmUnitCard({ room, isManual, isFailed, hasPendingComp, hasPendingFan, hasPendingChange, onToggleComp, onToggleFan }: {
+  room: RoomData; isManual: boolean; isFailed?: boolean
   hasPendingComp?: boolean; hasPendingFan?: boolean; hasPendingChange?: boolean
   onToggleComp: (e: React.MouseEvent) => void; onToggleFan: (e: React.MouseEvent) => void
 }) {
   const bg = isManual ? 'bg-[#4C1D95] opacity-90' : room.isOn ? 'bg-[#6D28D9]' : 'bg-[#4C1D95]'
   return (
-    <div className={`${bg} rounded-xl shadow-lg p-5 w-full text-white transition-all duration-300 hover:scale-[1.02] relative`}>
+    <div className={`${bg} rounded-xl shadow-lg p-5 w-full text-white transition-all duration-300 hover:scale-[1.02] relative ${isFailed ? 'ring-2 ring-red-500' : ''}`}>
       {hasPendingChange && <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-400 shadow" />}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-white text-xl font-medium">{room.name}</h3>
           <p className="text-white/80 text-sm mt-1">
-            {isManual ? <span className="text-amber-300 text-xs font-medium">Manual mode</span> : room.isOn ? 'On' : 'Off'}
+            {isFailed ? <span className="text-red-400 text-xs font-bold animate-pulse">⚠ FAULT</span> : isManual ? <span className="text-amber-300 text-xs font-medium">Manual mode</span> : room.isOn ? 'On' : 'Off'}
           </p>
         </div>
-        <div className={`w-3 h-3 rounded-full ${isManual ? 'bg-white/30' : room.isOn ? 'bg-green-400' : 'bg-red-400'}`} />
+        <div className={`w-3 h-3 rounded-full ${isFailed ? 'bg-red-500 animate-pulse' : isManual ? 'bg-white/30' : room.isOn ? 'bg-green-400' : 'bg-red-400'}`} />
       </div>
       {isManual ? (
         <div className="flex gap-3">
@@ -451,6 +451,7 @@ export default function DeviceRoomsPage() {
   const [pendingResetChanges, setPendingResetChanges] = useState<Record<string, Partial<RoomData>>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   const [s7Data, setS7Data] = useState<{ temp: number; humidity: number } | null>(null)
+  const [sysFail, setSysFail] = useState<{ unit1: boolean; unit2: boolean }>({ unit1: false, unit2: false })
 
   const user = getUser()
   const canEditWifi = user?.role === 'owner' || user?.role === 'admin'
@@ -640,6 +641,10 @@ export default function DeviceRoomsPage() {
         if (payload.sensor7) {
           setS7Data(payload.sensor7)
         }
+        // System failure flags for CSM
+        if (payload.sysFail1 !== undefined || payload.sysFail2 !== undefined) {
+          setSysFail({ unit1: !!payload.sysFail1, unit2: !!payload.sysFail2 })
+        }
       }
       if (topic.endsWith('/state')) {
         // Live relay state from device — merges SOV/Exh/Pump/HX/PF + any recipe fields
@@ -678,6 +683,10 @@ export default function DeviceRoomsPage() {
               ...(r.co2TriggerHigh       !== undefined && { co2TriggerHigh: r.co2TriggerHigh }),
             }
           }))
+        }
+        // System failure flags from state update
+        if (payload.sysFail1 !== undefined || payload.sysFail2 !== undefined) {
+          setSysFail({ unit1: !!payload.sysFail1, unit2: !!payload.sysFail2 })
         }
         // Ignore mode echoes for 5s after the user just toggled — prevents stale
         // device state from snapping the UI back. The firmware will eventually
@@ -1082,6 +1091,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
             <div key={room.id} onClick={() => handleRoomClick(room.id)} className={isAuto && canEditRooms && !isCsm ? 'cursor-pointer' : 'cursor-default'}>
               {isCsm ? (
                 <CsmUnitCard room={room} isManual={!isAuto}
+                  isFailed={room.id === 'room-1' ? sysFail.unit1 : sysFail.unit2}
                   hasPendingComp={!isAuto && room.id in pendingRelay1}
                   hasPendingFan={!isAuto && room.id in pendingRelay2}
                   hasPendingChange={isAuto && room.id in pendingResetChanges}
