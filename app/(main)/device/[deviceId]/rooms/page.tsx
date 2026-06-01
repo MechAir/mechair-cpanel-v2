@@ -549,6 +549,7 @@ export default function DeviceRoomsPage() {
           // Extract system failure flags for CSM
           if (isCsm) {
             const r = readingData.data.reading
+            console.log('🔍 Initial reading sysFail:', JSON.stringify({ sysFail1: r.sysFail1, sysFail2: r.sysFail2, keys: Object.keys(r) }))
             if (r.sysFail1 !== undefined || r.sysFail2 !== undefined) {
               setSysFail({ unit1: !!r.sysFail1, unit2: !!r.sysFail2 })
             }
