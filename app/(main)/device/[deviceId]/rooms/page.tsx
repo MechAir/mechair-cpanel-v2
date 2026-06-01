@@ -546,6 +546,13 @@ export default function DeviceRoomsPage() {
           if (isMlh && readingData.data.reading.sensor7) {
             setS7Data(readingData.data.reading.sensor7)
           }
+          // Extract system failure flags for CSM
+          if (isCsm) {
+            const r = readingData.data.reading
+            if (r.sysFail1 !== undefined || r.sysFail2 !== undefined) {
+              setSysFail({ unit1: !!r.sysFail1, unit2: !!r.sysFail2 })
+            }
+          }
         }
 
         // Merge recipe assignments from Settings so room cards show recipe name immediately
