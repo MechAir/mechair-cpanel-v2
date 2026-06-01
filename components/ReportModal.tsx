@@ -659,10 +659,11 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const humanizeType = (et: string | undefined): string => {
                 switch (et) {
                     case 'relay_change':    return 'Relay'
-                    case 'room_toggle':     return deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'
+                    case 'room_toggle':     return deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : deviceId.toLowerCase().startsWith('csm') ? 'Unit' : 'Room'
                     case 'mode_change':     return 'Mode'
                     case 'settings_change': return 'Settings'
                     case 'state_update':    return 'State'
+                    case 'system_failure':  return 'System Failure'
                     default:                return et || 'Event'
                 }
             }
