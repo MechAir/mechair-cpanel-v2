@@ -692,11 +692,7 @@ export default function DeviceRoomsPage() {
             }
           }))
         }
-        // System failure flags from state update
-        if (payload.sysFail1 !== undefined || payload.sysFail2 !== undefined) {
-          console.log('📡 sysFail from state:', payload.sysFail1, payload.sysFail2)
-          setSysFail({ unit1: !!payload.sysFail1, unit2: !!payload.sysFail2 })
-        }
+        // sysFail only trusted from readings (state can have stale values from relay-triggered publishes)
         // Ignore mode echoes for 5s after the user just toggled — prevents stale
         // device state from snapping the UI back. The firmware will eventually
         // publish the correct mode and at that point we accept it again.
