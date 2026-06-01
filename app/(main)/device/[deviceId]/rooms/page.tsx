@@ -650,6 +650,7 @@ export default function DeviceRoomsPage() {
         }
         // System failure flags for CSM
         if (payload.sysFail1 !== undefined || payload.sysFail2 !== undefined) {
+          console.log('📡 sysFail from readings:', payload.sysFail1, payload.sysFail2)
           setSysFail({ unit1: !!payload.sysFail1, unit2: !!payload.sysFail2 })
         }
       }
@@ -693,6 +694,7 @@ export default function DeviceRoomsPage() {
         }
         // System failure flags from state update
         if (payload.sysFail1 !== undefined || payload.sysFail2 !== undefined) {
+          console.log('📡 sysFail from state:', payload.sysFail1, payload.sysFail2)
           setSysFail({ unit1: !!payload.sysFail1, unit2: !!payload.sysFail2 })
         }
         // Ignore mode echoes for 5s after the user just toggled — prevents stale
