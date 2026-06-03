@@ -1653,7 +1653,7 @@ export default function DetailedGraphsPage() {
           <span className="text-gray-300">›</span>
           <button onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : deviceId.toLowerCase().startsWith('csm') ? 'units' : 'rooms'}`)} className="text-gray-400 hover:text-gray-700">{deviceId}</button>
           <span className="text-gray-300">›</span>
-<span className="text-gray-700 font-semibold">{isAlarmPage ? 'Alarm Sensor' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : deviceId.toLowerCase().startsWith('csm') ? 'Unit' : 'Room'} ${roomId}`} — Graphs</span>
+<span className="text-gray-700 font-semibold">{isAlarmPage ? 'Alarm Sensor' : deviceId.toLowerCase().startsWith('csm') ? 'Graphs' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId} — Graphs`}</span>
         </div>
         {timeRange.mode === 'live' && (
           <div className={`ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap
@@ -1667,7 +1667,7 @@ export default function DetailedGraphsPage() {
       {/* Title + controls */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 sm:mb-6 gap-3 sm:gap-4">
         <div>
-<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAlarmPage ? 'Alarm' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : deviceId.toLowerCase().startsWith('csm') ? 'Unit' : 'Room'} ${roomId}`} — Detailed Metrics</h2>
+<h2 className="text-xl sm:text-3xl font-bold text-gray-800">{isAlarmPage ? 'Alarm' : deviceId.toLowerCase().startsWith('csm') ? 'Detailed Metrics' : `${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} ${roomId} — Detailed Metrics`}</h2>
           <p className="text-gray-500 text-sm mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
             <span>
               {timeRange.mode === 'live'
