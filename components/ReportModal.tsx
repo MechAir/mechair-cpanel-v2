@@ -716,7 +716,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const isAlarm = roomId === 's7' || roomId === 'alarm'
 const roomKey = isAlarm ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
 const roomIdx = isAlarm ? 0 : parseInt(roomKey.replace('R', ''), 10)
-const isMlh = deviceId.toLowerCase().startsWith('mlh')
+const isMlh = deviceId.toLowerCase().startsWith('mlh') || deviceId.toLowerCase().startsWith('csm')
 
             // Build one row per reading — uses extractMetric for per-metric values
             // and pulls per-reading trigger flags from the room object directly.
