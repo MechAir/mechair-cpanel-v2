@@ -88,8 +88,13 @@ if (key === 'O2') return isFinite(room.O2) && room.O2 !== 0 ? room.O2 : (isFinit
 
 function minMax(vals: number[]): { min: number; max: number; avg: number } {
     if (!vals.length) return { min: 0, max: 0, avg: 0 }
-    const min = Math.min(...vals), max = Math.max(...vals)
-    return { min, max, avg: vals.reduce((a, b) => a + b, 0) / vals.length }
+    let min = vals[0], max = vals[0], sum = 0
+    for (let i = 0; i < vals.length; i++) {
+        if (vals[i] < min) min = vals[i]
+        if (vals[i] > max) max = vals[i]
+        sum += vals[i]
+    }
+    return { min, max, avg: sum / vals.length }
 }
 
 /**
