@@ -288,7 +288,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             // Fetch ALL readings (maxPoints=0) so PDF summary is accurate
             const params = buildApiParams(selectedRange, customFrom, customTo)
             if (!params) { setError('Please select both From and To dates.'); setLoading(false); return }
-            params.set('maxPoints', '0')
+            params.set('maxPoints', '2000')
 
             // Also fetch relay events for trigger counts
             const evParams = new URLSearchParams(params)
@@ -378,10 +378,10 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
                 triggersCO2: sampledTrigCO2,
                 triggersC2H4: sampledTrigC2H4,
                 // Store full counts for PDF summary (not just preview sample)
-                _fullReadingCount: readings.length,
+                _fullReadingCount: json.data.totalCount ?? readings.length,
                 _fullTriggersCO2Count: triggersCO2.filter(Boolean).length,
                 _fullTriggersC2H4Count: triggersC2H4.filter(Boolean).length,
-                // Full data for accurate summary stats
+                // Stats from the 2000-point sample — representative for min/max/avg
                 _fullTemp: readings.map(r => extractMetric(r, roomKey, 'temp')),
                 _fullCO2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
                 _fullO2: readings.map(r => isMlh ? extractMetric(r, roomKey, 'CO2') : extractMetric(r, roomKey, 'O2')),
@@ -693,7 +693,7 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             const fetchedReadings: RangeReading[] = []
             {
                 let nextToken: string | undefined = undefined
-                let safety = 50 // hard stop at 50 pages — prevents infinite loops
+                let safety = 200 // hard stop at 200 pages — supports up to ~1M readings at 5000/page
                 do {
                     const p = new URLSearchParams(excelParams)
                     if (nextToken) p.set('nextToken', nextToken)
