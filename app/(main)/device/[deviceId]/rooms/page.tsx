@@ -537,6 +537,10 @@ export default function DeviceRoomsPage() {
         let fetchedRooms: RoomData[] = []
         if (stateData.success) {
           fetchedRooms = stateData.data.rooms
+          // CSM: force COMP/FAN off for units that are OFF (prevents stale relay state on refresh)
+          if (isCsm) {
+            fetchedRooms = fetchedRooms.map((r: any) => r.isOn ? r : { ...r, compOn: false, sovOn: false })
+          }
           setIsAuto(stateData.data.mode === 'auto')
           if (isCsm && (stateData.data.sysFail1 !== undefined || stateData.data.sysFail2 !== undefined)) {
             setSysFail({ unit1: !!stateData.data.sysFail1, unit2: !!stateData.data.sysFail2 })
