@@ -506,6 +506,8 @@ export default function DeviceRoomsPage() {
         // MLH/CSM shape: { room1: { temp, humidity, compressor, sov }, ... }
         const r = reading[roomKey]
         if (!r) return room
+        // CSM: relay states (comp/sov) come only from /state topic, not readings — avoids stale relay flash on refresh
+        if (isCsm) return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid }
         return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid, compOn: r.compressor ?? room.compOn, sovOn: r.sov ?? room.sovOn }
       } else {
         // EMS nested shape: { room1: { temp, CO2, O2, c2h4 } }
