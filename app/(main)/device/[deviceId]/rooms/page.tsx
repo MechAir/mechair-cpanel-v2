@@ -251,6 +251,8 @@ function CsmUnitCard({ room, isManual, isFailed, hasPendingComp, hasPendingFan, 
   hasPendingComp?: boolean; hasPendingFan?: boolean; hasPendingChange?: boolean
   onToggleComp: (e: React.MouseEvent) => void; onToggleFan: (e: React.MouseEvent) => void
 }) {
+  const compOn = room.isOn ? room.compOn : false
+  const sovOn = room.isOn ? room.sovOn : false
   const bg = isManual ? 'bg-[#4C1D95] opacity-90' : room.isOn ? 'bg-[#6D28D9]' : 'bg-[#4C1D95]'
   return (
     <div className={`${bg} rounded-xl shadow-lg p-5 w-full text-white transition-all duration-300 hover:scale-[1.02] relative ${isFailed ? 'ring-2 ring-red-500' : ''}`}>
@@ -267,18 +269,18 @@ function CsmUnitCard({ room, isManual, isFailed, hasPendingComp, hasPendingFan, 
       {isManual ? (
         <div className="flex gap-3">
           <button onClick={onToggleComp}
-            className={`flex-1 py-4 rounded-xl text-base font-bold transition-colors ${room.compOn ? 'bg-green-500 text-white' : 'bg-red-500/80 text-white hover:bg-red-500'}`}>
+            className={`flex-1 py-4 rounded-xl text-base font-bold transition-colors ${compOn ? 'bg-green-500 text-white' : 'bg-red-500/80 text-white hover:bg-red-500'}`}>
             COMP
           </button>
           <button onClick={onToggleFan}
-            className={`flex-1 py-4 rounded-xl text-base font-bold transition-colors ${room.sovOn ? 'bg-green-500 text-white' : 'bg-red-500/80 text-white hover:bg-red-500'}`}>
+            className={`flex-1 py-4 rounded-xl text-base font-bold transition-colors ${sovOn ? 'bg-green-500 text-white' : 'bg-red-500/80 text-white hover:bg-red-500'}`}>
             FAN
           </button>
         </div>
       ) : (
         <div className="flex gap-3">
-          <span className={`flex-1 py-4 rounded-xl text-base font-bold text-center ${room.compOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/50'}`}>COMP</span>
-          <span className={`flex-1 py-4 rounded-xl text-base font-bold text-center ${room.sovOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/50'}`}>FAN</span>
+          <span className={`flex-1 py-4 rounded-xl text-base font-bold text-center ${compOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/50'}`}>COMP</span>
+          <span className={`flex-1 py-4 rounded-xl text-base font-bold text-center ${sovOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/50'}`}>FAN</span>
         </div>
       )}
     </div>
