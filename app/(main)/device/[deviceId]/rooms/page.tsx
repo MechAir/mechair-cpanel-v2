@@ -992,6 +992,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
             <div className="relative">
               {isCsm ? (
                 <button onClick={() => {
+                  if (!isAuto) return
                   const anyOn = rooms.some(r => r.isOn)
                   if (anyOn) {
                     handleCsmStop()
@@ -999,7 +1000,8 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
                     setShowCsmUnitSelect(true)
                   }
                 }}
-                  className={`px-4 sm:px-8 py-2.5 sm:py-4 border-2 rounded-xl sm:rounded-2xl font-semibold transition-colors text-sm sm:text-lg ${rooms.some(r => r.isOn) ? 'bg-red-500 border-red-500 text-white hover:bg-red-600' : 'bg-green-500 border-green-500 text-white hover:bg-green-600'}`}>
+                  disabled={!isAuto}
+                  className={`px-4 sm:px-8 py-2.5 sm:py-4 border-2 rounded-xl sm:rounded-2xl font-semibold transition-colors text-sm sm:text-lg ${!isAuto ? 'bg-gray-200 border-gray-200 text-gray-400 cursor-not-allowed' : rooms.some(r => r.isOn) ? 'bg-red-500 border-red-500 text-white hover:bg-red-600' : 'bg-green-500 border-green-500 text-white hover:bg-green-600'}`}>
                   {rooms.some(r => r.isOn) ? '■ Stop' : '▶ Start'}
                 </button>
               ) : (
