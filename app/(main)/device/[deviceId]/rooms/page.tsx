@@ -537,10 +537,6 @@ export default function DeviceRoomsPage() {
         let fetchedRooms: RoomData[] = []
         if (stateData.success) {
           fetchedRooms = stateData.data.rooms
-          // CSM: force COMP/FAN off for units that are OFF (prevents stale relay state on refresh)
-          if (isCsm) {
-            fetchedRooms = fetchedRooms.map((r: any) => r.isOn ? r : { ...r, compOn: false, sovOn: false })
-          }
           setIsAuto(stateData.data.mode === 'auto')
           if (isCsm && (stateData.data.sysFail1 !== undefined || stateData.data.sysFail2 !== undefined)) {
             setSysFail({ unit1: !!stateData.data.sysFail1, unit2: !!stateData.data.sysFail2 })
@@ -549,6 +545,10 @@ export default function DeviceRoomsPage() {
 
         if (readingData.success && readingData.data?.reading) {
           fetchedRooms = applyReadingToRooms(fetchedRooms, readingData.data.reading)
+          // CSM: force COMP/FAN off for units that are OFF (readings can carry stale relay state)
+          if (isCsm) {
+            fetchedRooms = fetchedRooms.map(r => r.isOn ? r : { ...r, compOn: false, sovOn: false })
+          }
           // Extract S7 ambient sensor for MLH
           if (isMlh && readingData.data.reading.sensor7) {
             setS7Data(readingData.data.reading.sensor7)
