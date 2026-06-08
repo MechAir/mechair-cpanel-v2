@@ -1707,7 +1707,7 @@ export default function DetailedGraphsPage() {
               })
               .map(id => (
               <button key={id}
-                onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machine' : 'room'}/${id}/graphs/detailed`)}
+                onClick={() => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machine' : deviceId.toLowerCase().startsWith('csm') ? 'unit' : 'room'}/${id}/graphs/detailed`)}
                 className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200
                   ${!isAlarmPage && roomId === id ? 'bg-[#7EC8E3] text-white shadow-md' : 'bg-[#2B8DB8] text-white hover:bg-[#3A9DC4]'}`}>
                 {deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room'} {id}
