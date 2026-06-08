@@ -694,7 +694,7 @@ export default function DashboardPage() {
     // Sub-admins and supervisors should go directly to their device
     const user = getUser()
     if (user && (user.role === 'sub-admin' || user.role === 'supervisor') && user.linkedDeviceId) {
-      router.replace(`/device/${user.linkedDeviceId}/${user.linkedDeviceId?.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'}`)
+      router.replace(`/device/${user.linkedDeviceId}/${user.linkedDeviceId?.toLowerCase().startsWith('mlh') ? 'machines' : user.linkedDeviceId?.toLowerCase().startsWith('csm') ? 'units' : 'rooms'}`)
       return
     }
 
@@ -720,7 +720,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [isAuthenticated])
 
-  const handleDeviceClick = (deviceId: string) => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : 'rooms'}`)
+  const handleDeviceClick = (deviceId: string) => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : deviceId.toLowerCase().startsWith('csm') ? 'units' : 'rooms'}`)
   const handleDeviceAdded = (device: Device) => setDevices(prev => [device, ...prev])
   const handleDeviceDeleted = (deviceId: string) => setDevices(prev => prev.filter(d => d.deviceId !== deviceId))
   const admin = isAdmin()
