@@ -633,8 +633,8 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
             // doc.setTextColor(241, 245, 249); doc.setFontSize(55); doc.setFont('helvetica', 'bold')
             // doc.text('Mech Air', PW / 2, PH / 2, { align: 'center', angle: 90 })
 
-            const fileName = `Mech Air_Report_${deviceId.toLowerCase().startsWith('mlh') ? 'Machine' + roomId : deviceId.toLowerCase().startsWith('csm') ? 'Unit' : 'Room' + roomId}_${selectedRange}_${Date.now()}.pdf`
-            doc.save(fileName)
+const fileName = `Mech Air_Report_${deviceId.toLowerCase().startsWith('csm') ? 'Unit' : deviceId.toLowerCase().startsWith('mlh') ? ('Machine' + roomId) : ('Room' + roomId)}_${selectedRange}_${Date.now()}.pdf`
+    doc.save(fileName)
         } catch (e) {
             console.error('PDF generation failed:', e)
             setError('Failed to generate PDF. Please try again.')
@@ -932,7 +932,7 @@ const isMlh = deviceId.toLowerCase().startsWith('mlh') || deviceId.toLowerCase()
             utils.book_append_sheet(wb, wsSummary, 'Summary')
             utils.book_append_sheet(wb, wsInfo, 'Info')
 
-const fileName = `Mech_Air_${isAlarm ? 'Alarm' : deviceId.toLowerCase().startsWith('csm') ? 'Unit' : (deviceId.toLowerCase().startsWith('mlh') ? 'Machine' : 'Room') + roomId}_${selectedRange}_${Date.now()}.xlsx`
+const fileName = `Mech_Air_${isAlarm ? 'Alarm' : deviceId.toLowerCase().startsWith('csm') ? 'Unit' : (deviceId.toLowerCase().startsWith('mlh') ? ('Machine' + roomId) : ('Room' + roomId))}_${selectedRange}_${Date.now()}.xlsx`
     writeFile(wb, fileName)
         } catch (e) {
             console.error('Excel export failed:', e)
