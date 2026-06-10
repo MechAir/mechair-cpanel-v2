@@ -770,8 +770,10 @@ const isMlh = deviceId.toLowerCase().startsWith('mlh') || deviceId.toLowerCase()
                     // Keep: events with no metric, events for THIS room, or device-wide
                     // (metric doesn't start with "room-" — e.g. pump, mode, recipes, enabled-rooms)
                     const currentRoomId = `room-${roomId}`
+                    const isCsmReport = deviceId.toLowerCase().startsWith('csm')
                     const filteredEvents = events.filter((evt: any) =>
                         !evt.metric ||
+                        isCsmReport ||
                         evt.metric === currentRoomId ||
                         (!String(evt.metric).startsWith('room-'))
                     )
