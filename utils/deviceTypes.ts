@@ -56,6 +56,18 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
     relays: ['compressor', 'sov'],
     settingsTabs: ['timings', 'manual', 'unit-time', 'calibration', 'limits'],
   },
+  mlh500: {
+    prefix: 'mlh500',
+    rooms: 6, // fallback if digits missing
+    label: 'Cold Room Management System 500',
+    shortLabel: 'MLH500',
+    color: '#1D6B35',
+    badgeBg: 'bg-green-800',
+    roomLabel: 'Machine',
+    sensors: ['temp', 'humidity'],
+    relays: ['compressor1', 'compressor2', 'fan'],
+    settingsTabs: ['timings', 'manual', 'calibration', 'enabled-rooms', 'limits'],
+  },
   // ── Add future device types below ──────────────────────────────
   // xyz: {
   //   prefix: 'xyz',
@@ -77,16 +89,23 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
  * XYZ08250101 → 08 → 8 rooms
  * Returns null if digits can't be parsed.
  */
+function detectPrefix(deviceId: string): string {
+  const id = (deviceId || '').toLowerCase()
+  if (id.startsWith('mlh500')) return 'mlh500'
+  return id.slice(0, 3)
+}
+
 function parseRoomCount(deviceId: string): number | null {
   if (!deviceId || deviceId.length < 5) return null
-  const digits = deviceId.slice(3, 5)
+  const prefixLen = detectPrefix(deviceId).length
+  const digits = deviceId.slice(prefixLen, prefixLen + 2)
   const num = parseInt(digits, 10)
   return isNaN(num) || num <= 0 ? null : num
 }
 
 // Detect device type from deviceId prefix + parse room count from digits
 export function getDeviceType(deviceId: string): DeviceTypeConfig {
-  const prefix = deviceId.toLowerCase().slice(0, 3)
+  const prefix = detectPrefix(deviceId)
   const base = DEVICE_TYPES[prefix] ?? DEVICE_TYPES['ems']
   const roomCount = parseRoomCount(deviceId)
   return {
@@ -97,6 +116,7 @@ export function getDeviceType(deviceId: string): DeviceTypeConfig {
 
 // Check if a deviceId belongs to a specific type
 export function isDeviceType(deviceId: string, type: string): boolean {
+  if (type.toLowerCase() === 'mlh' && deviceId.toLowerCase().startsWith('mlh500')) return false
   return deviceId.toLowerCase().startsWith(type.toLowerCase())
 }
 
