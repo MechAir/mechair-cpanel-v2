@@ -1547,7 +1547,7 @@ export default function SettingsPage() {
   const deviceId = params?.deviceId as string
 
   const deviceType = getDeviceType(deviceId)
-  const isMlh = deviceType.prefix === 'mlh'
+  const isMlh = deviceType.prefix === 'mlh' || deviceType.prefix === 'mlh500'
   const isCsm = deviceType.prefix === 'csm'
 
   // Tab state — EMS, MLH or CSM
