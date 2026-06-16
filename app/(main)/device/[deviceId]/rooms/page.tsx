@@ -461,7 +461,7 @@ export default function DeviceRoomsPage() {
 
   // Detect device type
   const deviceType = getDeviceType(deviceId)
-  const isMlh = deviceType.prefix === 'mlh'
+  const isMlh = deviceType.prefix === 'mlh' || deviceType.prefix === 'mlh500'
   const isCsm = deviceType.prefix === 'csm'
   const relay1Label = isCsm ? 'COMP' : isMlh ? 'Compressor' : 'SOV'
   const relay2Label = isCsm ? 'FAN' : isMlh ? 'Cooling SOV' : 'Exhaust'
