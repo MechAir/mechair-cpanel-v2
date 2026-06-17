@@ -709,8 +709,7 @@ function Mlh500TimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhR
   if (!loaded) return <div className="text-center py-8 text-gray-400">Loading...</div>
   const cur = settings[activeRoom]
   const set = (key: keyof Mlh500RoomSettings, val: any) => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], [key]: val } }))
-  return (
-    const [saving, setSaving] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const handleSave = async () => { try { setSaving(true); await save(); setSaved(true); setTimeout(() => setSaved(false), 2000) } finally { setSaving(false) } }
   return (
