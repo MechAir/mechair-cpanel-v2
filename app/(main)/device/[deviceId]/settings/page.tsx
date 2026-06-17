@@ -72,7 +72,6 @@ const defaultMlh500Settings: Mlh500RoomSettings = {
 const defaultMlh500Manual: Mlh500ManualSettings = {
   manualFanOnTime: { value: 30, unit: 'sec' }, manualComp1OnTime: { value: 30, unit: 'sec' }, manualComp2OnTime: { value: 30, unit: 'sec' },
 }
-}
 
 // CSM types
 type CsmTabType = 'timings' | 'manual' | 'unit-time' | 'calibration' | 'limits'
