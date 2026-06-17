@@ -763,12 +763,11 @@ function Mlh500ManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRo
     }}
     await fetch(`${API}/devices/${deviceId}/settings/manual-timings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manualSettings: payload }) })
   }
-  if (!loaded) return <div className="text-center py-8 text-gray-400">Loading...</div>
-  const cur = settings[activeRoom]
-  return (
-    const [saving, setSaving] = useState(false)
+ const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const handleSave = async () => { try { setSaving(true); await save(); setSaved(true); setTimeout(() => setSaved(false), 2000) } finally { setSaving(false) } }
+  if (!loaded) return <div className="text-center py-8 text-gray-400">Loading...</div>
+  const cur = settings[activeRoom]
   return (
     <div className="px-3 sm:px-8 py-4 sm:py-6 space-y-5">
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Manual Timings</p>
