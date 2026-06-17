@@ -35,6 +35,15 @@ interface MlhRoomSettings {
 }
 interface MlhManualSettings { manualCompressorOnTime: TimingField; manualSovOnTime: TimingField }
 
+// MLH500 types
+interface Mlh500RoomSettings {
+  comp1DelayTime: TimingField; comp2DelayTime: TimingField
+  comp1TempSetpoint: number; comp1TempTriggerDiff: number
+  comp2TempSetpoint: number; comp2TempTriggerDiff: number
+  comp2HumidSetpoint: number; comp2HumidTriggerDiff: number
+}
+interface Mlh500ManualSettings { manualFanOnTime: TimingField; manualComp1OnTime: TimingField; manualComp2OnTime: TimingField }
+
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const defaultEmsSettings: EmsRoomSettings = {
   c2h4TriggerDiff: 0.5, co2Setpoint: 1000, co2TriggerDiff: 100,
@@ -52,7 +61,18 @@ const defaultMlhSettings: MlhRoomSettings = {
   tempSetpoint: 4.0, tempTriggerDiff: 1.0, humiditySetpoint: 90.0, humidityTriggerDiff: 5.0,
 }
 const defaultMlhManual: MlhManualSettings = {
+  const defaultMlhManual: MlhManualSettings = {
   manualCompressorOnTime: { value: 30, unit: 'sec' }, manualSovOnTime: { value: 15, unit: 'sec' },
+}
+const defaultMlh500Settings: Mlh500RoomSettings = {
+  comp1DelayTime: { value: 0, unit: 'sec' }, comp2DelayTime: { value: 0, unit: 'sec' },
+  comp1TempSetpoint: 10.0, comp1TempTriggerDiff: 2.0,
+  comp2TempSetpoint: 15.0, comp2TempTriggerDiff: 2.0,
+  comp2HumidSetpoint: 35.0, comp2HumidTriggerDiff: 5.0,
+}
+const defaultMlh500Manual: Mlh500ManualSettings = {
+  manualFanOnTime: { value: 30, unit: 'sec' }, manualComp1OnTime: { value: 30, unit: 'sec' }, manualComp2OnTime: { value: 30, unit: 'sec' },
+}
 }
 
 // CSM types
@@ -641,6 +661,109 @@ function MlhTimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoom
         </div>
       </div>
       {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+function parseMlh500Timings(raw: any, prev: Mlh500RoomSettings): Mlh500RoomSettings {
+  return {
+    comp1DelayTime: raw.comp1DelayValue !== undefined ? { value: raw.comp1DelayValue, unit: (['sec','min','hr'] as const)[raw.comp1DelayUnit ?? 0] } : raw.comp1DelayTime ?? prev.comp1DelayTime,
+    comp2DelayTime: raw.comp2DelayValue !== undefined ? { value: raw.comp2DelayValue, unit: (['sec','min','hr'] as const)[raw.comp2DelayUnit ?? 0] } : raw.comp2DelayTime ?? prev.comp2DelayTime,
+    comp1TempSetpoint: raw.comp1TempSetpoint ?? prev.comp1TempSetpoint,
+    comp1TempTriggerDiff: raw.comp1TempTriggerDiff ?? prev.comp1TempTriggerDiff,
+    comp2TempSetpoint: raw.comp2TempSetpoint ?? prev.comp2TempSetpoint,
+    comp2TempTriggerDiff: raw.comp2TempTriggerDiff ?? prev.comp2TempTriggerDiff,
+    comp2HumidSetpoint: raw.comp2HumidSetpoint ?? prev.comp2HumidSetpoint,
+    comp2HumidTriggerDiff: raw.comp2HumidTriggerDiff ?? prev.comp2HumidTriggerDiff,
+  }
+}
+
+function Mlh500TimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomType; deviceId: string; readOnly?: boolean }) {
+  const unitMap: Record<string, number> = { sec: 0, min: 1, hr: 2 }
+  const [settings, setSettings] = useState<Record<MlhRoomType, Mlh500RoomSettings>>(Object.fromEntries(mlhRooms.map(r => [r, { ...defaultMlh500Settings }])) as Record<MlhRoomType, Mlh500RoomSettings>)
+  const [loaded, setLoaded] = useState(false)
+  useEffect(() => {
+    fetch(`${API}/devices/${deviceId}/settings/timings`).then(r => r.json()).then(data => {
+      if (data.success && data.data?.settings) {
+        setSettings(prev => { const updated = { ...prev }; for (const room of mlhRooms) { if (data.data.settings[room]) updated[room] = parseMlh500Timings(data.data.settings[room], prev[room]) } return updated })
+      }
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [deviceId])
+  useEffect(() => {
+    const h = (e: MessageEvent) => { try { const d = JSON.parse(e.data); if (d.type === 'settings_update' && d.settings) { setSettings(prev => { const u = { ...prev }; for (const room of mlhRooms) { if (d.settings[room]) u[room] = parseMlh500Timings(d.settings[room], prev[room]) } return u }) } } catch {} }
+    window.addEventListener('message', h); return () => window.removeEventListener('message', h)
+  }, [])
+  const save = async () => {
+    const payload: Record<string, any> = {}
+    for (const room of mlhRooms) { const s = settings[room]; payload[room] = {
+      comp1DelayValue: s.comp1DelayTime.value, comp1DelayUnit: unitMap[s.comp1DelayTime.unit] ?? 0,
+      comp2DelayValue: s.comp2DelayTime.value, comp2DelayUnit: unitMap[s.comp2DelayTime.unit] ?? 0,
+      comp1TempSetpoint: s.comp1TempSetpoint, comp1TempTriggerDiff: s.comp1TempTriggerDiff,
+      comp2TempSetpoint: s.comp2TempSetpoint, comp2TempTriggerDiff: s.comp2TempTriggerDiff,
+      comp2HumidSetpoint: s.comp2HumidSetpoint, comp2HumidTriggerDiff: s.comp2HumidTriggerDiff,
+    }}
+    await fetch(`${API}/devices/${deviceId}/settings/timings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: payload }) })
+  }
+  if (!loaded) return <div className="text-center py-8 text-gray-400">Loading...</div>
+  const cur = settings[activeRoom]
+  const set = (key: keyof Mlh500RoomSettings, val: any) => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], [key]: val } }))
+  return (
+    <div className="space-y-4">
+      <TimingRow label="Comp1 Cooling Delay:" field={cur.comp1DelayTime} readOnly={readOnly} onChange={u => set('comp1DelayTime', { ...cur.comp1DelayTime, ...u })} />
+      <TimingRow label="Comp2 Heating Delay:" field={cur.comp2DelayTime} readOnly={readOnly} onChange={u => set('comp2DelayTime', { ...cur.comp2DelayTime, ...u })} />
+      <fieldset className="border border-gray-200 rounded-lg p-3"><legend className="text-xs font-semibold text-gray-500 px-2">COMP1 COOLING (TEMP)</legend>
+        <div className="grid grid-cols-2 gap-4">
+          <SetpointRow label="Temp Setpoint:" value={cur.comp1TempSetpoint} unit="°C" step={0.1} min={-40} max={60} readOnly={readOnly} onChange={v => set('comp1TempSetpoint', parseFloat(v) || 0)} />
+          <SetpointRow label="Temp Trigger Diff:" value={cur.comp1TempTriggerDiff} unit="°C" step={0.1} min={0} max={60} readOnly={readOnly} onChange={v => set('comp1TempTriggerDiff', parseFloat(v) || 0)} />
+        </div>
+      </fieldset>
+      <fieldset className="border border-gray-200 rounded-lg p-3"><legend className="text-xs font-semibold text-gray-500 px-2">COMP2 HEATING (TEMP + HUMIDITY)</legend>
+        <div className="grid grid-cols-2 gap-4">
+          <SetpointRow label="Temp Setpoint:" value={cur.comp2TempSetpoint} unit="°C" step={0.1} min={-40} max={60} readOnly={readOnly} onChange={v => set('comp2TempSetpoint', parseFloat(v) || 0)} />
+          <SetpointRow label="Temp Trigger Diff:" value={cur.comp2TempTriggerDiff} unit="°C" step={0.1} min={0} max={60} readOnly={readOnly} onChange={v => set('comp2TempTriggerDiff', parseFloat(v) || 0)} />
+          <SetpointRow label="Humid Setpoint:" value={cur.comp2HumidSetpoint} unit="%" step={0.1} min={0} max={100} readOnly={readOnly} onChange={v => set('comp2HumidSetpoint', parseFloat(v) || 0)} />
+          <SetpointRow label="Humid Trigger Diff:" value={cur.comp2HumidTriggerDiff} unit="%" step={0.1} min={0} max={100} readOnly={readOnly} onChange={v => set('comp2HumidTriggerDiff', parseFloat(v) || 0)} />
+        </div>
+      </fieldset>
+      {!readOnly && <button onClick={save} className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm font-semibold"><span>✓</span> Save Settings</button>}
+    </div>
+  )
+}
+
+function Mlh500ManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomType; deviceId: string; readOnly?: boolean }) {
+  const unitMap: Record<string, number> = { sec: 0, min: 1, hr: 2 }
+  const [settings, setSettings] = useState<Record<MlhRoomType, Mlh500ManualSettings>>(Object.fromEntries(mlhRooms.map(r => [r, { ...defaultMlh500Manual }])) as Record<MlhRoomType, Mlh500ManualSettings>)
+  const [loaded, setLoaded] = useState(false)
+  useEffect(() => {
+    fetch(`${API}/devices/${deviceId}/settings/manual-timings`).then(r => r.json()).then(data => {
+      if (data.success && data.data?.manualSettings) {
+        setSettings(prev => { const u = { ...prev }; for (const room of mlhRooms) { const raw = data.data.manualSettings[room]; if (raw) { u[room] = {
+          manualFanOnTime: raw.manualFanOnValue !== undefined ? { value: raw.manualFanOnValue, unit: (['sec','min','hr'] as const)[raw.manualFanOnUnit ?? 0] } : raw.manualFanOnTime ?? prev[room].manualFanOnTime,
+          manualComp1OnTime: raw.manualComp1OnValue !== undefined ? { value: raw.manualComp1OnValue, unit: (['sec','min','hr'] as const)[raw.manualComp1OnUnit ?? 0] } : raw.manualComp1OnTime ?? prev[room].manualComp1OnTime,
+          manualComp2OnTime: raw.manualComp2OnValue !== undefined ? { value: raw.manualComp2OnValue, unit: (['sec','min','hr'] as const)[raw.manualComp2OnUnit ?? 0] } : raw.manualComp2OnTime ?? prev[room].manualComp2OnTime,
+        }}} return u })
+      }
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [deviceId])
+  const save = async () => {
+    const payload: Record<string, any> = {}
+    for (const room of mlhRooms) { const s = settings[room]; payload[room] = {
+      manualFanOnTime: { value: s.manualFanOnTime.value, unit: s.manualFanOnTime.unit },
+      manualComp1OnTime: { value: s.manualComp1OnTime.value, unit: s.manualComp1OnTime.unit },
+      manualComp2OnTime: { value: s.manualComp2OnTime.value, unit: s.manualComp2OnTime.unit },
+    }}
+    await fetch(`${API}/devices/${deviceId}/settings/manual-timings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manualSettings: payload }) })
+  }
+  if (!loaded) return <div className="text-center py-8 text-gray-400">Loading...</div>
+  const cur = settings[activeRoom]
+  return (
+    <div className="space-y-4">
+      <TimingRow label="Indoor Fan ON Time:" field={cur.manualFanOnTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualFanOnTime: { ...p[activeRoom].manualFanOnTime, ...u } } }))} />
+      <TimingRow label="Comp1 Cooling ON Time:" field={cur.manualComp1OnTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualComp1OnTime: { ...p[activeRoom].manualComp1OnTime, ...u } } }))} />
+      <TimingRow label="Comp2 Heating ON Time:" field={cur.manualComp2OnTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualComp2OnTime: { ...p[activeRoom].manualComp2OnTime, ...u } } }))} />
+      {!readOnly && <button onClick={save} className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm font-semibold"><span>✓</span> Save Settings</button>}
     </div>
   )
 }
@@ -1547,7 +1670,8 @@ export default function SettingsPage() {
   const deviceId = params?.deviceId as string
 
   const deviceType = getDeviceType(deviceId)
-  const isMlh = deviceType.prefix === 'mlh' || deviceType.prefix === 'mlh500'
+  const isMlh500 = deviceType.prefix === 'mlh500'
+  const isMlh = deviceType.prefix === 'mlh' || isMlh500
   const isCsm = deviceType.prefix === 'csm'
 
   // Tab state — EMS, MLH or CSM
@@ -1679,8 +1803,10 @@ export default function SettingsPage() {
         {!isMlh && !isCsm && activeEmsTab === 'limits' && <EmsLimitsTab activeRoom={activeEmsRoom} deviceId={deviceId} readOnly={readOnly} />}
 
        {/* MLH tab content */}
-        {isMlh && activeMlhTab === 'timings' && <MlhTimingsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
-        {isMlh && activeMlhTab === 'manual' && <MlhManualTab key={`mlh-manual-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {isMlh && !isMlh500 && activeMlhTab === 'timings' && <MlhTimingsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {isMlh500 && activeMlhTab === 'timings' && <Mlh500TimingsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {isMlh && !isMlh500 && activeMlhTab === 'manual' && <MlhManualTab key={`manual-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {isMlh500 && activeMlhTab === 'manual' && <Mlh500ManualTab key={`manual500-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'calibration' && <MlhCalibrationTab key={`mlh-calib-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'enabled-rooms' && <MlhEnabledRoomsTab deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'limits' && <MlhLimitsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
