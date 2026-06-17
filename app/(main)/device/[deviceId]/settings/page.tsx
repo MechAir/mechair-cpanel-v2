@@ -61,7 +61,6 @@ const defaultMlhSettings: MlhRoomSettings = {
   tempSetpoint: 4.0, tempTriggerDiff: 1.0, humiditySetpoint: 90.0, humidityTriggerDiff: 5.0,
 }
 const defaultMlhManual: MlhManualSettings = {
-  const defaultMlhManual: MlhManualSettings = {
   manualCompressorOnTime: { value: 30, unit: 'sec' }, manualSovOnTime: { value: 15, unit: 'sec' },
 }
 const defaultMlh500Settings: Mlh500RoomSettings = {
