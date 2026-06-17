@@ -22,6 +22,10 @@ interface RoomData {
   pfOn?: boolean
   // MLH extras
   compOn?: boolean
+  // MLH500 extras
+  fanOn?: boolean
+  comp1On?: boolean
+  comp2On?: boolean
   // Recipe runtime status (sent from ESP32)
   recipeName?: string | null
   recipeStep?: number
@@ -246,6 +250,56 @@ function MlhRoomCard({ room, isManual, hasPendingComp, hasPendingSov, hasPending
   )
 }
 
+function Mlh500MachineCard({ room, isManual, hasPendingChange, onToggleFan, onToggleComp1, onToggleComp2 }: {
+  room: RoomData; isManual: boolean; hasPendingChange?: boolean
+  onToggleFan: (e: React.MouseEvent) => void; onToggleComp1: (e: React.MouseEvent) => void; onToggleComp2: (e: React.MouseEvent) => void
+}) {
+  const bg = isManual ? 'bg-[#14532D] opacity-90' : room.isOn ? 'bg-[#1D6B35]' : 'bg-[#14532D]'
+  const fanOn = room.isOn ? room.fanOn : false
+  const comp1On = room.isOn ? room.comp1On : false
+  const comp2On = room.isOn ? room.comp2On : false
+  return (
+    <div className={`${bg} rounded-xl shadow-lg p-4 w-full text-white transition-all duration-300 hover:scale-[1.02] relative`}>
+      {hasPendingChange && <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-400 shadow" />}
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-white text-lg font-medium">{room.name}</h3>
+          <p className="text-white/80 text-xs mt-0.5">
+            {isManual ? <span className="text-amber-300 text-xs font-medium">Manual mode</span> : room.isOn ? 'On' : 'Off'}
+          </p>
+        </div>
+        <div className={`w-3 h-3 rounded-full ${isManual ? 'bg-white/30' : room.isOn ? 'bg-green-400' : 'bg-red-400'}`} />
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="bg-white/10 rounded-lg p-2"><p className="text-white/60 text-[10px]">Temperature</p><p className="text-white font-semibold text-sm">{room.temp?.toFixed(1) ?? '--'}°C</p></div>
+        <div className="bg-white/10 rounded-lg p-2"><p className="text-white/60 text-[10px]">Humidity</p><p className="text-white font-semibold text-sm">{room.humid?.toFixed(1) ?? '--'}%</p></div>
+      </div>
+      {isManual ? (
+        <div className="flex gap-2">
+          <button onClick={onToggleFan}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${fanOn ? 'bg-green-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
+            Fan {fanOn ? 'ON' : 'OFF'}
+          </button>
+          <button onClick={onToggleComp1}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${comp1On ? 'bg-blue-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
+            C1 {comp1On ? 'ON' : 'OFF'}
+          </button>
+          <button onClick={onToggleComp2}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${comp2On ? 'bg-orange-500 text-white' : 'bg-white/20 text-white/70 hover:bg-white/30'}`}>
+            C2 {comp2On ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <span className={`flex-1 py-1 rounded-lg text-xs font-semibold text-center ${fanOn ? 'bg-green-500/40 text-green-200' : 'bg-white/10 text-white/40'}`}>Fan {fanOn ? 'ON' : 'OFF'}</span>
+          <span className={`flex-1 py-1 rounded-lg text-xs font-semibold text-center ${comp1On ? 'bg-blue-500/40 text-blue-200' : 'bg-white/10 text-white/40'}`}>C1 {comp1On ? 'ON' : 'OFF'}</span>
+          <span className={`flex-1 py-1 rounded-lg text-xs font-semibold text-center ${comp2On ? 'bg-orange-500/40 text-orange-200' : 'bg-white/10 text-white/40'}`}>C2 {comp2On ? 'ON' : 'OFF'}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CsmUnitCard({ room, isManual, isFailed, hasPendingComp, hasPendingFan, hasPendingChange, onToggleComp, onToggleFan }: {
   room: RoomData; isManual: boolean; isFailed?: boolean
   hasPendingComp?: boolean; hasPendingFan?: boolean; hasPendingChange?: boolean
@@ -450,6 +504,7 @@ export default function DeviceRoomsPage() {
   // Pending changes — relay1 = SOV (EMS) or Compressor (MLH), relay2 = Exhaust (EMS) or Cooling SOV (MLH)
   const [pendingRelay1, setPendingRelay1] = useState<Record<string, boolean>>({})
   const [pendingRelay2, setPendingRelay2] = useState<Record<string, boolean>>({})
+  const [pendingRelay3, setPendingRelay3] = useState<Record<string, boolean>>({})
   const [pendingResetChanges, setPendingResetChanges] = useState<Record<string, Partial<RoomData>>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   const [s7Data, setS7Data] = useState<{ temp: number; humidity: number } | null>(null)
@@ -461,10 +516,12 @@ export default function DeviceRoomsPage() {
 
   // Detect device type
   const deviceType = getDeviceType(deviceId)
-  const isMlh = deviceType.prefix === 'mlh' || deviceType.prefix === 'mlh500'
+  const isMlh500 = deviceType.prefix === 'mlh500'
+  const isMlh = deviceType.prefix === 'mlh' || isMlh500
   const isCsm = deviceType.prefix === 'csm'
-  const relay1Label = isCsm ? 'COMP' : isMlh ? 'Compressor' : 'SOV'
-  const relay2Label = isCsm ? 'FAN' : isMlh ? 'Cooling SOV' : 'Exhaust'
+  const relay1Label = isCsm ? 'COMP' : isMlh500 ? 'Fan' : isMlh ? 'Compressor' : 'SOV'
+  const relay2Label = isCsm ? 'FAN' : isMlh500 ? 'Comp1' : isMlh ? 'Cooling SOV' : 'Exhaust'
+  const relay3Label = isMlh500 ? 'Comp2' : ''
   const unitLabel = deviceType.roomLabel || 'Room'
 
   // Display-friendly name: replace "Room" with "Machine" for MLH, "Unit" for CSM
@@ -844,7 +901,7 @@ export default function DeviceRoomsPage() {
     setShowModeConfirm(false)
     const newMode = isAuto ? 'manual' : 'auto'
     lastModeChangeAt.current = Date.now()   // ignore device echoes for ~5s
-    setIsAuto(!isAuto); setPendingRelay1({}); setPendingRelay2({}); setPendingResetChanges({})
+    setIsAuto(!isAuto); setPendingRelay1({}); setPendingRelay2({}); setPendingRelay3({}); setPendingResetChanges({})
     try {
       await fetch(`${API_BASE}/devices/${deviceId}/state`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -860,11 +917,17 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
     if (Object.keys(pendingRelay1).length === 0 && Object.keys(pendingRelay2).length === 0) return
     const updated = rooms.map(r => {
       const overrides: Partial<RoomData> = {}
-      if (r.id in pendingRelay1) (isMlh || isCsm) ? (overrides.compOn = pendingRelay1[r.id]) : (overrides.sovOn = pendingRelay1[r.id])
-      if (r.id in pendingRelay2) (isMlh || isCsm) ? (overrides.sovOn = pendingRelay2[r.id]) : (overrides.exhOn = pendingRelay2[r.id])
+      if (isMlh500) {
+        if (r.id in pendingRelay1) overrides.fanOn = pendingRelay1[r.id]
+        if (r.id in pendingRelay2) overrides.comp1On = pendingRelay2[r.id]
+        if (r.id in pendingRelay3) overrides.comp2On = pendingRelay3[r.id]
+      } else {
+        if (r.id in pendingRelay1) (isMlh || isCsm) ? (overrides.compOn = pendingRelay1[r.id]) : (overrides.sovOn = pendingRelay1[r.id])
+        if (r.id in pendingRelay2) (isMlh || isCsm) ? (overrides.sovOn = pendingRelay2[r.id]) : (overrides.exhOn = pendingRelay2[r.id])
+      }
       return Object.keys(overrides).length > 0 ? { ...r, ...overrides } : r
     })
-    setRooms(updated); setPendingRelay1({}); setPendingRelay2({})
+    setRooms(updated); setPendingRelay1({}); setPendingRelay2({}); setPendingRelay3({})
     await updateRoomsOnServer(updated)
     pushToast({ type: 'success', title: 'Dosing Applied', message: 'Manual dosing settings saved.' })
   }
@@ -874,8 +937,14 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
     let r = room
     if (!isAuto && (room.id in pendingRelay1 || room.id in pendingRelay2)) {
       const overrides: Partial<RoomData> = {}
-      if (room.id in pendingRelay1) (isMlh || isCsm) ? (overrides.compOn = pendingRelay1[room.id]) : (overrides.sovOn = pendingRelay1[room.id])
-      if (room.id in pendingRelay2) (isMlh || isCsm) ? (overrides.sovOn = pendingRelay2[room.id]) : (overrides.exhOn = pendingRelay2[room.id])
+      if (isMlh500) {
+        if (room.id in pendingRelay1) overrides.fanOn = pendingRelay1[room.id]
+        if (room.id in pendingRelay2) overrides.comp1On = pendingRelay2[room.id]
+        if (room.id in pendingRelay3) overrides.comp2On = pendingRelay3[room.id]
+      } else {
+        if (room.id in pendingRelay1) (isMlh || isCsm) ? (overrides.compOn = pendingRelay1[room.id]) : (overrides.sovOn = pendingRelay1[room.id])
+        if (room.id in pendingRelay2) (isMlh || isCsm) ? (overrides.sovOn = pendingRelay2[room.id]) : (overrides.exhOn = pendingRelay2[room.id])
+      }
       r = { ...room, ...overrides }
     } else if (isAuto && room.id in pendingResetChanges) {
       r = { ...room, ...pendingResetChanges[room.id] }
@@ -1116,6 +1185,12 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
                   hasPendingChange={isAuto && room.id in pendingResetChanges}
                   onToggleComp={(e) => handleToggleRelay1(room.id, e)}
                   onToggleFan={(e) => handleToggleRelay2(room.id, e)} />
+              ) : isMlh500 ? (
+                <Mlh500MachineCard room={room} isManual={!isAuto}
+                  hasPendingChange={isAuto && room.id in pendingResetChanges}
+                  onToggleFan={(e) => handleToggleRelay1(room.id, e)}
+                  onToggleComp1={(e) => handleToggleRelay2(room.id, e)}
+                  onToggleComp2={(e) => { e.stopPropagation(); setPendingRelay3(prev => { const cur = room.id in prev ? prev[room.id] : (room.comp2On ?? false); const orig = room.comp2On ?? false; if (!cur === orig) { const n = {...prev}; delete n[room.id]; return n } return {...prev, [room.id]: !cur} }) }} />
               ) : isMlh ? (
                 <MlhRoomCard room={room} isManual={!isAuto}
                   hasPendingComp={!isAuto && room.id in pendingRelay1}
