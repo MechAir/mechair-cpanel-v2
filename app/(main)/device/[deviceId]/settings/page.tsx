@@ -710,24 +710,31 @@ function Mlh500TimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhR
   const cur = settings[activeRoom]
   const set = (key: keyof Mlh500RoomSettings, val: any) => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], [key]: val } }))
   return (
-    <div className="space-y-4">
-      <TimingRow label="Comp1 Cooling Delay:" field={cur.comp1DelayTime} readOnly={readOnly} onChange={u => set('comp1DelayTime', { ...cur.comp1DelayTime, ...u })} />
-      <TimingRow label="Comp2 Heating Delay:" field={cur.comp2DelayTime} readOnly={readOnly} onChange={u => set('comp2DelayTime', { ...cur.comp2DelayTime, ...u })} />
-      <fieldset className="border border-gray-200 rounded-lg p-3"><legend className="text-xs font-semibold text-gray-500 px-2">COMP1 COOLING (TEMP)</legend>
-        <div className="grid grid-cols-2 gap-4">
+    const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const handleSave = async () => { try { setSaving(true); await save(); setSaved(true); setTimeout(() => setSaved(false), 2000) } finally { setSaving(false) } }
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6">
+      <div className="space-y-5 mb-6">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Delay Timings</p>
+        <TimingRow label="Comp1 Cooling Delay:" field={cur.comp1DelayTime} readOnly={readOnly} onChange={u => set('comp1DelayTime', { ...cur.comp1DelayTime, ...u })} />
+        <TimingRow label="Comp2 Heating Delay:" field={cur.comp2DelayTime} readOnly={readOnly} onChange={u => set('comp2DelayTime', { ...cur.comp2DelayTime, ...u })} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-5">
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp1 Cooling (Temperature)</p>
           <SetpointRow label="Temp Setpoint:" value={cur.comp1TempSetpoint} unit="°C" step={0.1} min={-40} max={60} readOnly={readOnly} onChange={v => set('comp1TempSetpoint', parseFloat(v) || 0)} />
           <SetpointRow label="Temp Trigger Diff:" value={cur.comp1TempTriggerDiff} unit="°C" step={0.1} min={0} max={60} readOnly={readOnly} onChange={v => set('comp1TempTriggerDiff', parseFloat(v) || 0)} />
         </div>
-      </fieldset>
-      <fieldset className="border border-gray-200 rounded-lg p-3"><legend className="text-xs font-semibold text-gray-500 px-2">COMP2 HEATING (TEMP + HUMIDITY)</legend>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp2 Heating (Temp + Humidity)</p>
           <SetpointRow label="Temp Setpoint:" value={cur.comp2TempSetpoint} unit="°C" step={0.1} min={-40} max={60} readOnly={readOnly} onChange={v => set('comp2TempSetpoint', parseFloat(v) || 0)} />
           <SetpointRow label="Temp Trigger Diff:" value={cur.comp2TempTriggerDiff} unit="°C" step={0.1} min={0} max={60} readOnly={readOnly} onChange={v => set('comp2TempTriggerDiff', parseFloat(v) || 0)} />
           <SetpointRow label="Humid Setpoint:" value={cur.comp2HumidSetpoint} unit="%" step={0.1} min={0} max={100} readOnly={readOnly} onChange={v => set('comp2HumidSetpoint', parseFloat(v) || 0)} />
           <SetpointRow label="Humid Trigger Diff:" value={cur.comp2HumidTriggerDiff} unit="%" step={0.1} min={0} max={100} readOnly={readOnly} onChange={v => set('comp2HumidTriggerDiff', parseFloat(v) || 0)} />
         </div>
-      </fieldset>
-      {!readOnly && <button onClick={save} className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm font-semibold"><span>✓</span> Save Settings</button>}
+      </div>
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
   )
 }
@@ -760,11 +767,16 @@ function Mlh500ManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRo
   if (!loaded) return <div className="text-center py-8 text-gray-400">Loading...</div>
   const cur = settings[activeRoom]
   return (
-    <div className="space-y-4">
-      <TimingRow label="Indoor Fan ON Time:" field={cur.manualFanOnTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualFanOnTime: { ...p[activeRoom].manualFanOnTime, ...u } } }))} />
-      <TimingRow label="Comp1 Cooling ON Time:" field={cur.manualComp1OnTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualComp1OnTime: { ...p[activeRoom].manualComp1OnTime, ...u } } }))} />
-      <TimingRow label="Comp2 Heating ON Time:" field={cur.manualComp2OnTime} readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualComp2OnTime: { ...p[activeRoom].manualComp2OnTime, ...u } } }))} />
-      {!readOnly && <button onClick={save} className="mt-4 px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-sm font-semibold"><span>✓</span> Save Settings</button>}
+    const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const handleSave = async () => { try { setSaving(true); await save(); setSaved(true); setTimeout(() => setSaved(false), 2000) } finally { setSaving(false) } }
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6 space-y-5">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Manual Timings</p>
+      <TimingRow label="Indoor Fan ON Time:" field={cur.manualFanOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualFanOnTime: { ...p[activeRoom].manualFanOnTime, ...u } } }))} />
+      <TimingRow label="Comp1 Cooling ON Time:" field={cur.manualComp1OnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualComp1OnTime: { ...p[activeRoom].manualComp1OnTime, ...u } } }))} />
+      <TimingRow label="Comp2 Heating ON Time:" field={cur.manualComp2OnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualComp2OnTime: { ...p[activeRoom].manualComp2OnTime, ...u } } }))} />
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
   )
 }
