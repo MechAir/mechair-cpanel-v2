@@ -63,6 +63,9 @@ const defaultMlhSettings: MlhRoomSettings = {
 const defaultMlhManual: MlhManualSettings = {
   manualCompressorOnTime: { value: 30, unit: 'sec' }, manualSovOnTime: { value: 15, unit: 'sec' },
 }
+const mlhRooms: MlhRoomType[] = ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Room 5', 'Room 6']
+const API = API_BASE
+
 const defaultMlh500Settings: Mlh500RoomSettings = {
   comp1DelayTime: { value: 0, unit: 'sec' }, comp2DelayTime: { value: 0, unit: 'sec' },
   comp1TempSetpoint: 10.0, comp1TempTriggerDiff: 2.0,
