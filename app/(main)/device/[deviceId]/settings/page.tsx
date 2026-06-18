@@ -733,13 +733,6 @@ function Mlh500TimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhR
           <SetpointRow label="Humid Trigger Diff:" value={cur.comp2HumidTriggerDiff} unit="%" step={0.1} min={0} max={100} readOnly={readOnly} onChange={v => set('comp2HumidTriggerDiff', parseFloat(v) || 0)} />
         </div>
       </div>
-      <div className="space-y-5">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp2 Heating — Humidity</p>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-5">
-          <SetpointRow label="Humid Setpoint:" value={cur.comp2HumidSetpoint} unit="%" step={0.1} min={0} max={100} readOnly={readOnly} onChange={v => set('comp2HumidSetpoint', parseFloat(v) || 0)} />
-          <SetpointRow label="Humid Trigger Diff:" value={cur.comp2HumidTriggerDiff} unit="%" step={0.1} min={0} max={100} readOnly={readOnly} onChange={v => set('comp2HumidTriggerDiff', parseFloat(v) || 0)} />
-        </div>
-      </div>
       {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
   )
