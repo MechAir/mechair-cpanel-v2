@@ -1538,6 +1538,13 @@ function MlhLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomT
             onChange={u => update({ emailCooldown: { ...(cur.emailCooldown || { value: 30, unit: 'min' }), ...u } })} />
         </div>
 
+        {/* ── Cloud Data Timing (MLH500 only) ── */}
+        <div className="space-y-5 lg:col-span-2 border-t border-gray-200 pt-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Cloud Data Timing</p>
+          <TimingRow label="Send Interval:" field={cur.cloudDataTiming || { value: 60, unit: 'sec' }} readOnly={readOnly}
+            onChange={u => update({ cloudDataTiming: { ...(cur.cloudDataTiming || { value: 60, unit: 'sec' }), ...u } })} />
+        </div>
+
         {/* ── Right: Temp & Humidity Limits ── */}
         <div className="space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Temperature Limits</p>
