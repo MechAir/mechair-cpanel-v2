@@ -1536,13 +1536,22 @@ function MlhLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomT
 
           <TimingRow label="Email Cooldown:" field={cur.emailCooldown || { value: 30, unit: 'min' }} readOnly={readOnly}
             onChange={u => update({ emailCooldown: { ...(cur.emailCooldown || { value: 30, unit: 'min' }), ...u } })} />
-        </div>
 
-        {/* ── Cloud Data Timing (MLH500 only) ── */}
-        <div className="space-y-5 lg:col-span-2 border-t border-gray-200 pt-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Cloud Data Timing</p>
-          <TimingRow label="Send Interval:" field={cur.cloudDataTiming || { value: 60, unit: 'sec' }} readOnly={readOnly}
-            onChange={u => update({ cloudDataTiming: { ...(cur.cloudDataTiming || { value: 60, unit: 'sec' }), ...u } })} />
+          <div className="border-t border-gray-200 pt-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Cloud Data Timing</p>
+            <TimingRow label="Send Interval:" field={cur.cloudDataTiming || { value: 60, unit: 'sec' }} readOnly={readOnly}
+              onChange={u => update({ cloudDataTiming: { ...(cur.cloudDataTiming || { value: 60, unit: 'sec' }), ...u } })} />
+          </div>
+
+          <div className="border-t border-gray-200 pt-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Hooter Settings</p>
+            <div className="space-y-5">
+              <TimingRow label="Hooter ON Time:" field={cur.hooterOnTime || { value: 30, unit: 'sec' }} readOnly={readOnly}
+                onChange={u => update({ hooterOnTime: { ...(cur.hooterOnTime || { value: 30, unit: 'sec' }), ...u } })} />
+              <TimingRow label="Hooter Cooldown:" field={cur.hooterCooldown || { value: 5, unit: 'min' }} readOnly={readOnly}
+                onChange={u => update({ hooterCooldown: { ...(cur.hooterCooldown || { value: 5, unit: 'min' }), ...u } })} />
+            </div>
+          </div>
         </div>
 
         {/* ── Right: Temp & Humidity Limits ── */}
@@ -1554,17 +1563,6 @@ function MlhLimitsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomT
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">Humidity Limits</p>
           <SetpointRow label="Humidity High Limit:" value={cur.humidHigh ?? 90} unit="%" step={1} min={0} max={100} readOnly={readOnly} onChange={v => update({ humidHigh: parseFloat(v) || 0 })} />
           <SetpointRow label="Humidity Low Limit:" value={cur.humidLow ?? 30} unit="%" step={1} min={0} max={100} readOnly={readOnly} onChange={v => update({ humidLow: parseFloat(v) || 0 })} />
-        </div>
-      </div>
-
-      {/* ── Bottom: Hooter Settings ── */}
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-5">Hooter Settings</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-5 max-w-3xl">
-          <TimingRow label="Hooter ON Time:" field={cur.hooterOnTime || { value: 30, unit: 'sec' }} readOnly={readOnly}
-            onChange={u => update({ hooterOnTime: { ...(cur.hooterOnTime || { value: 30, unit: 'sec' }), ...u } })} />
-          <TimingRow label="Hooter Cooldown:" field={cur.hooterCooldown || { value: 5, unit: 'min' }} readOnly={readOnly}
-            onChange={u => update({ hooterCooldown: { ...(cur.hooterCooldown || { value: 5, unit: 'min' }), ...u } })} />
         </div>
       </div>
 
