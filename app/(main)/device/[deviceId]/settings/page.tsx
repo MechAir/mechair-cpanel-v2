@@ -714,14 +714,12 @@ function Mlh500TimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhR
   const set = (key: keyof Mlh500RoomSettings, val: any) => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], [key]: val } }))
   return (
     <div className="px-3 sm:px-8 py-4 sm:py-6">
-      <div className="space-y-5 mb-6">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Delay Timings</p>
-        <TimingRow label="Comp1 Cooling Delay:" field={cur.comp1DelayTime} readOnly={readOnly} onChange={u => set('comp1DelayTime', { ...cur.comp1DelayTime, ...u })} />
-        <TimingRow label="Comp2 Heating Delay:" field={cur.comp2DelayTime} readOnly={readOnly} onChange={u => set('comp2DelayTime', { ...cur.comp2DelayTime, ...u })} />
-      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6 items-start">
         <div className="space-y-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp1 Cooling (Temperature)</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Delay Timings</p>
+          <TimingRow label="Comp1 Cooling Delay:" field={cur.comp1DelayTime} readOnly={readOnly} onChange={u => set('comp1DelayTime', { ...cur.comp1DelayTime, ...u })} />
+          <TimingRow label="Comp2 Heating Delay:" field={cur.comp2DelayTime} readOnly={readOnly} onChange={u => set('comp2DelayTime', { ...cur.comp2DelayTime, ...u })} />
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest pt-3">Comp1 Cooling (Temperature)</p>
           <SetpointRow label="Temp Setpoint:" value={cur.comp1TempSetpoint} unit="°C" step={0.1} min={-40} max={60} readOnly={readOnly} onChange={v => set('comp1TempSetpoint', parseFloat(v) || 0)} />
           <SetpointRow label="Temp Trigger Diff:" value={cur.comp1TempTriggerDiff} unit="°C" step={0.1} min={0} max={60} readOnly={readOnly} onChange={v => set('comp1TempTriggerDiff', parseFloat(v) || 0)} />
         </div>
