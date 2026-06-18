@@ -691,10 +691,15 @@ function Mlh500TimingsTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhR
       setLoaded(true)
     }).catch(() => setLoaded(true))
   }, [deviceId])
-  useEffect(() => {
-    const h = (e: MessageEvent) => { try { const d = JSON.parse(e.data); if (d.type === 'settings_update' && d.settings) { setSettings(prev => { const u = { ...prev }; for (const room of mlhRooms) { if (d.settings[room]) u[room] = parseMlh500Timings(d.settings[room], prev[room]) } return u }) } } catch {} }
-    window.addEventListener('message', h); return () => window.removeEventListener('message', h)
-  }, [])
+  useIoT(
+    [`devices/${deviceId}/settings/timings`],
+    useCallback(({ payload }) => {
+      const incoming = payload?.settings ?? payload
+      if (incoming && incoming['Room 1'] !== undefined) {
+        setSettings(prev => { const u = { ...prev }; for (const room of mlhRooms) { if (incoming[room]) u[room] = parseMlh500Timings(incoming[room], prev[room]) } return u })
+      }
+    }, [])
+  )
   const save = async () => {
     const payload: Record<string, any> = {}
     for (const room of mlhRooms) { const s = settings[room]; payload[room] = {
@@ -752,6 +757,19 @@ function Mlh500ManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRo
       setLoaded(true)
     }).catch(() => setLoaded(true))
   }, [deviceId])
+  useIoT(
+    [`devices/${deviceId}/settings/manual-timings`],
+    useCallback(({ payload }) => {
+      const incoming = payload?.manualSettings ?? payload
+      if (incoming && incoming['Room 1'] !== undefined) {
+        setSettings(prev => { const u = { ...prev }; for (const room of mlhRooms) { const raw = incoming[room]; if (raw) { u[room] = {
+          manualFanOnTime: raw.manualFanOnValue !== undefined ? { value: raw.manualFanOnValue, unit: (['sec','min','hr'] as const)[raw.manualFanOnUnit ?? 0] } : raw.manualFanOnTime ?? prev[room].manualFanOnTime,
+          manualComp1OnTime: raw.manualComp1OnValue !== undefined ? { value: raw.manualComp1OnValue, unit: (['sec','min','hr'] as const)[raw.manualComp1OnUnit ?? 0] } : raw.manualComp1OnTime ?? prev[room].manualComp1OnTime,
+          manualComp2OnTime: raw.manualComp2OnValue !== undefined ? { value: raw.manualComp2OnValue, unit: (['sec','min','hr'] as const)[raw.manualComp2OnUnit ?? 0] } : raw.manualComp2OnTime ?? prev[room].manualComp2OnTime,
+        }}} return u })
+      }
+    }, [])
+  )
   const save = async () => {
     const payload: Record<string, any> = {}
     for (const room of mlhRooms) { const s = settings[room]; payload[room] = {
