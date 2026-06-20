@@ -255,9 +255,9 @@ function Mlh500MachineCard({ room, isManual, hasPendingChange, pendingOff, onTog
   onToggleFan: (e: React.MouseEvent) => void; onToggleComp1: (e: React.MouseEvent) => void; onToggleComp2: (e: React.MouseEvent) => void
 }) {
   const bg = isManual ? 'bg-[#14532D] opacity-90' : pendingOff ? 'bg-[#14532D]' : room.isOn ? 'bg-[#1D6B35]' : 'bg-[#14532D]'
-  const fanOn = room.isOn ? room.fanOn : false
-  const comp1On = room.isOn ? room.comp1On : false
-  const comp2On = room.isOn ? room.comp2On : false
+  const fanOn = (isManual || room.isOn) ? (room.fanOn ?? false) : false
+  const comp1On = (isManual || room.isOn) ? (room.comp1On ?? false) : false
+  const comp2On = (isManual || room.isOn) ? (room.comp2On ?? false) : false
   return (
     <div className={`${bg} rounded-xl shadow-lg p-4 w-full text-white transition-all duration-300 hover:scale-[1.02] relative`}>
       {hasPendingChange && <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-400 shadow" />}
