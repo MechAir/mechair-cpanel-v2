@@ -565,7 +565,7 @@ export default function DeviceRoomsPage() {
         if (!r) return room
         // CSM: relay states (comp/sov) come only from /state topic, not readings — avoids stale relay flash on refresh
         if (isCsm) return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid }
-        if (isMlh500) return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid, fanOn: r.fan ?? room.fanOn, comp1On: r.comp1 ?? room.comp1On, comp2On: r.comp2 ?? room.comp2On }
+        if (isMlh500) return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid }
         return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid, compOn: r.compressor ?? room.compOn, sovOn: r.sov ?? room.sovOn }
       } else {
         // EMS nested shape: { room1: { temp, CO2, O2, c2h4 } }
