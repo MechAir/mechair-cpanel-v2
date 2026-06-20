@@ -954,7 +954,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
       }
       r = { ...room, ...overrides }
     } else if (isAuto && room.id in pendingResetChanges) {
-      if (!isMlh500) r = { ...room, ...pendingResetChanges[room.id] }
+      r = { ...room, ...pendingResetChanges[room.id] }
     }
     // MLH: display "Machine" instead of "Room"
     if (isCsm) r = { ...r, name: r.name.replace(/Room/gi, 'Unit') }
