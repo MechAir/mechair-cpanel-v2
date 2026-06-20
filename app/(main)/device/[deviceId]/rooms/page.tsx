@@ -968,7 +968,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
     return r
   })
 
-    const pendingManualCount = Object.keys(pendingRelay1).length + Object.keys(pendingRelay2).length + Object.keys(pendingRelay3).length
+   const pendingManualCount = Object.keys(pendingRelay1).length + Object.keys(pendingRelay2).length + Object.keys(pendingRelay3).length
   const pendingResetCount = Object.keys(pendingResetChanges).length
 
   // Grid cols: EMS=2 cols (4 rooms), MLH=3 cols (6 rooms)
