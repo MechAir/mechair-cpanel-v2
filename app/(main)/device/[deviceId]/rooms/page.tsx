@@ -254,7 +254,7 @@ function Mlh500MachineCard({ room, isManual, hasPendingChange, onToggleFan, onTo
   room: RoomData; isManual: boolean; hasPendingChange?: boolean
   onToggleFan: (e: React.MouseEvent) => void; onToggleComp1: (e: React.MouseEvent) => void; onToggleComp2: (e: React.MouseEvent) => void
 }) {
-  const bg = isManual ? 'bg-[#14532D] opacity-90' : room.isOn ? 'bg-[#1D6B35]' : 'bg-[#14532D]'
+  const bg = isManual ? 'bg-[#14532D] opacity-90' : hasPendingChange ? 'bg-[#14532D]' : room.isOn ? 'bg-[#1D6B35]' : 'bg-[#14532D]'
   const fanOn = room.isOn ? room.fanOn : false
   const comp1On = room.isOn ? room.comp1On : false
   const comp2On = room.isOn ? room.comp2On : false
@@ -954,7 +954,12 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
       }
       r = { ...room, ...overrides }
     } else if (isAuto && room.id in pendingResetChanges) {
-      r = { ...room, ...pendingResetChanges[room.id] }
+      if (isMlh500) {
+        const { isOn: _skip, ...rest } = pendingResetChanges[room.id]
+        r = { ...room, ...rest }
+      } else {
+        r = { ...room, ...pendingResetChanges[room.id] }
+      }
     }
     // MLH: display "Machine" instead of "Room"
     if (isCsm) r = { ...r, name: r.name.replace(/Room/gi, 'Unit') }
