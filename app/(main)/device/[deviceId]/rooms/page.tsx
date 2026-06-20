@@ -355,7 +355,8 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
   const changedRooms = rooms.filter(r => {
     const r1Changed = r.id in pendingRelay1 && pendingRelay1[r.id] !== ((isMlh || isCsm) ? r.compOn : r.sovOn)
     const r2Changed = r.id in pendingRelay2 && pendingRelay2[r.id] !== ((isMlh || isCsm) ? r.sovOn : r.exhOn)
-    return r1Changed || r2Changed
+    const r3Changed = pendingRelay3 && r.id in pendingRelay3 && pendingRelay3[r.id] !== (r.comp2On ?? false)
+    return r1Changed || r2Changed || r3Changed
   })
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
