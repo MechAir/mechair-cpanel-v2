@@ -825,9 +825,10 @@ export default function DeviceRoomsPage() {
     if (!canEditRooms) return
     if (!isAuto) {
       setPendingRelay1(prev => {
-        const cur = id in prev ? prev[id] : ((isMlh || isCsm) ? (rooms.find(r => r.id === id)?.compOn ?? false) : (rooms.find(r => r.id === id)?.sovOn ?? false))
+        const rm = rooms.find(r => r.id === id)
+        const cur = id in prev ? prev[id] : (isMlh500 ? (rm?.fanOn ?? false) : (isMlh || isCsm) ? (rm?.compOn ?? false) : (rm?.sovOn ?? false))
         const next = !cur
-        const orig = (isMlh || isCsm) ? (rooms.find(r => r.id === id)?.compOn ?? false) : (rooms.find(r => r.id === id)?.sovOn ?? false)
+        const orig = isMlh500 ? (rm?.fanOn ?? false) : (isMlh || isCsm) ? (rm?.compOn ?? false) : (rm?.sovOn ?? false)
         if (next === orig) { const { [id]: _, ...rest } = prev; return rest }
         return { ...prev, [id]: next }
       })
@@ -856,9 +857,9 @@ export default function DeviceRoomsPage() {
     if (!isAuto) {
       setPendingRelay2(prev => {
         const room = rooms.find(r => r.id === id)
-        const cur = id in prev ? prev[id] : ((isMlh || isCsm) ? (room?.sovOn ?? false) : (room?.exhOn ?? false))
+        const cur = id in prev ? prev[id] : (isMlh500 ? (room?.comp1On ?? false) : (isMlh || isCsm) ? (room?.sovOn ?? false) : (room?.exhOn ?? false))
         const next = !cur
-        const orig = (isMlh || isCsm) ? (room?.sovOn ?? false) : (room?.exhOn ?? false)
+        const orig = isMlh500 ? (room?.comp1On ?? false) : (isMlh || isCsm) ? (room?.sovOn ?? false) : (room?.exhOn ?? false)
         if (next === orig) { const { [id]: _, ...rest } = prev; return rest }
         return { ...prev, [id]: next }
       })
@@ -921,7 +922,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
 
   const handleManualDosingConfirm = async () => {
     setShowManualDosing(false)
-    if (Object.keys(pendingRelay1).length === 0 && Object.keys(pendingRelay2).length === 0) return
+    if (Object.keys(pendingRelay1).length === 0 && Object.keys(pendingRelay2).length === 0 && Object.keys(pendingRelay3).length === 0) return
     const updated = rooms.map(r => {
       const overrides: Partial<RoomData> = {}
       if (isMlh500) {
@@ -942,7 +943,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
  // Display rooms with staged changes applied for preview
   const displayRooms = rooms.map(room => {
     let r = room
-    if (!isAuto && (room.id in pendingRelay1 || room.id in pendingRelay2)) {
+    if (!isAuto && (room.id in pendingRelay1 || room.id in pendingRelay2 || room.id in pendingRelay3)) {
       const overrides: Partial<RoomData> = {}
       if (isMlh500) {
         if (room.id in pendingRelay1) overrides.fanOn = pendingRelay1[room.id]
@@ -967,7 +968,7 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
     return r
   })
 
-  const pendingManualCount = Object.keys(pendingRelay1).length + Object.keys(pendingRelay2).length
+    const pendingManualCount = Object.keys(pendingRelay1).length + Object.keys(pendingRelay2).length + Object.keys(pendingRelay3).length
   const pendingResetCount = Object.keys(pendingResetChanges).length
 
   // Grid cols: EMS=2 cols (4 rooms), MLH=3 cols (6 rooms)
