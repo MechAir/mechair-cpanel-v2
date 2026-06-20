@@ -366,10 +366,12 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
         ) : (
           <div className="space-y-3 mb-6">
             {changedRooms.map(room => {
-              const r1Current = (isMlh || isCsm) ? room.compOn : room.sovOn
-              const r2Current = (isMlh || isCsm) ? room.sovOn : room.exhOn
+              const r1Current = isMlh500 ? (room.fanOn ?? false) : (isMlh || isCsm) ? room.compOn : room.sovOn
+              const r2Current = isMlh500 ? (room.comp1On ?? false) : (isMlh || isCsm) ? room.sovOn : room.exhOn
+              const r3Current = room.comp2On ?? false
               const r1Changed = room.id in pendingRelay1 && pendingRelay1[room.id] !== r1Current
               const r2Changed = room.id in pendingRelay2 && pendingRelay2[room.id] !== r2Current
+              const r3Changed = pendingRelay3 && room.id in pendingRelay3 && pendingRelay3[room.id] !== r3Current
               return (
                 <div key={room.id} className="bg-gray-50 rounded-lg px-4 py-3 text-sm">
                   <span className="font-medium text-gray-700 block mb-2">{room.name}</span>
@@ -384,7 +386,7 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
                     </div>
                   )}
                   {r2Changed && (
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
                       <span className="uppercase font-semibold">{relay2Label}</span>
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded-full font-semibold ${r2Current ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{r2Current ? 'ON' : 'OFF'}</span>
@@ -393,11 +395,19 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
                       </div>
                     </div>
                   )}
+                  {r3Changed && relay3Label && (
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span className="uppercase font-semibold">{relay3Label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${r3Current ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{r3Current ? 'ON' : 'OFF'}</span>
+                        <span>→</span>
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${pendingRelay3![room.id] ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pendingRelay3![room.id] ? 'ON' : 'OFF'}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
-          </div>
-        )}
         <div className="flex gap-3">
           <button onClick={onCancel} className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm">Cancel</button>
           {changedRooms.length > 0 && (
@@ -1047,8 +1057,8 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
       )}
 
       {showManualDosing && (
-        <ManualDosingModal rooms={rooms} pendingRelay1={pendingRelay1} pendingRelay2={pendingRelay2}
-          relay1Label={relay1Label} relay2Label={relay2Label}
+        <ManualDosingModal rooms={rooms} pendingRelay1={pendingRelay1} pendingRelay2={pendingRelay2} pendingRelay3={pendingRelay3}
+          relay1Label={relay1Label} relay2Label={relay2Label} relay3Label={relay3Label}
           onConfirm={handleManualDosingConfirm} onCancel={() => setShowManualDosing(false)} />
       )}
 
