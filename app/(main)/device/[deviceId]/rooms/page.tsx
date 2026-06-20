@@ -341,20 +341,23 @@ function CsmUnitCard({ room, isManual, isFailed, hasPendingComp, hasPendingFan, 
   )
 }
 
-function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, relay2Label, onConfirm, onCancel }: {
+function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, pendingRelay3, relay1Label, relay2Label, relay3Label, onConfirm, onCancel }: {
   rooms: RoomData[]
   pendingRelay1: Record<string, boolean>
   pendingRelay2: Record<string, boolean>
+  pendingRelay3?: Record<string, boolean>
   relay1Label: string
   relay2Label: string
+  relay3Label?: string
   onConfirm: () => void
   onCancel: () => void
 }) {
-  const isMlh = relay1Label === 'Compressor'
+  const isMlh500 = relay1Label === 'Fan'
+  const isMlh = relay1Label === 'Compressor' || isMlh500
   const isCsm = relay1Label === 'COMP'
   const changedRooms = rooms.filter(r => {
-    const r1Changed = r.id in pendingRelay1 && pendingRelay1[r.id] !== ((isMlh || isCsm) ? r.compOn : r.sovOn)
-    const r2Changed = r.id in pendingRelay2 && pendingRelay2[r.id] !== ((isMlh || isCsm) ? r.sovOn : r.exhOn)
+    const r1Changed = r.id in pendingRelay1 && pendingRelay1[r.id] !== (isMlh500 ? (r.fanOn ?? false) : (isMlh || isCsm) ? r.compOn : r.sovOn)
+    const r2Changed = r.id in pendingRelay2 && pendingRelay2[r.id] !== (isMlh500 ? (r.comp1On ?? false) : (isMlh || isCsm) ? r.sovOn : r.exhOn)
     const r3Changed = pendingRelay3 && r.id in pendingRelay3 && pendingRelay3[r.id] !== (r.comp2On ?? false)
     return r1Changed || r2Changed || r3Changed
   })
@@ -363,7 +366,7 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
       <div className="bg-white rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4 border border-gray-100">
         <h2 className="text-base font-bold text-gray-900 mb-4">{(isMlh || isCsm) ? 'Manual Start' : 'Manual Dosing'}</h2>
         {changedRooms.length === 0 ? (
-                    <p className="text-sm text-gray-500 mb-6">No changes staged. Toggle relays on a {isCsm ? 'unit' : isMlh ? 'machine' : 'room'} first.</p>
+          <p className="text-sm text-gray-500 mb-6">No changes staged. Toggle relays on a {isCsm ? 'unit' : isMlh ? 'machine' : 'room'} first.</p>
         ) : (
           <div className="space-y-3 mb-6">
             {changedRooms.map(room => {
@@ -409,6 +412,8 @@ function ManualDosingModal({ rooms, pendingRelay1, pendingRelay2, relay1Label, r
                 </div>
               )
             })}
+          </div>
+        )}
         <div className="flex gap-3">
           <button onClick={onCancel} className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm">Cancel</button>
           {changedRooms.length > 0 && (
