@@ -1308,7 +1308,7 @@ export default function DetailedGraphsPage() {
 
   // Fetch enabled rooms for MLH
   useEffect(() => {
-    if (getDeviceType(deviceId).prefix !== 'mlh') return
+    if (getDeviceType(deviceId).prefix !== 'mlh' && getDeviceType(deviceId).prefix !== 'mlh500') return
     fetch(`${API_BASE}/devices/${deviceId}/settings/enabled-rooms`)
       .then(r => r.json())
       .then(data => { if (data.success && data.data?.enabledRooms) setEnabledRooms(data.data.enabledRooms) })
@@ -1377,7 +1377,7 @@ export default function DetailedGraphsPage() {
           intervalsC2H4: sovIntervals,
         })
         // Seed S7 ambient data for MLH
-        if (getDeviceType(deviceId).prefix === 'mlh') {
+        if (getDeviceType(deviceId).prefix === 'mlh' || getDeviceType(deviceId).prefix === 'mlh500') {
           const s7Temp = readings.map((r: any) => r.sensor7?.temp ?? 0)
           const s7Humid = readings.map((r: any) => r.sensor7?.humidity ?? 0)
           const s7Labels = readings.map((r: any) => formatLiveLabel(r.timestamp))
@@ -1702,7 +1702,7 @@ export default function DetailedGraphsPage() {
             )}
             {Array.from({ length: getDeviceType(deviceId).rooms }, (_, i) => String(i + 1))
               .filter(id => {
-                if (getDeviceType(deviceId).prefix !== 'mlh') return true
+                if (getDeviceType(deviceId).prefix !== 'mlh' && getDeviceType(deviceId).prefix !== 'mlh500') return true
                 return enabledRooms[`Room ${id}`] !== false && enabledRooms[`r${id}`] !== false
               })
               .map(id => (
@@ -1735,7 +1735,7 @@ export default function DetailedGraphsPage() {
       {/* Graphs — filtered by device type sensors */}
       {(() => {
         const dt = getDeviceType(deviceId)
-        const isMlh = dt.prefix === 'mlh'
+        const isMlh = dt.prefix === 'mlh' || dt.prefix === 'mlh500'
         const isCsm = dt.prefix === 'csm'
         const showC2H4 = dt.sensors.includes('c2h4')
         const showCO2 = dt.sensors.includes('co2')
@@ -1811,7 +1811,7 @@ export default function DetailedGraphsPage() {
           latest={latest}
           prefix={prefix}
           onClose={() => setExpandedMetric(null)}
-          visibleMetrics={(getDeviceType(deviceId).prefix === 'mlh' || getDeviceType(deviceId).prefix === 'csm') ? ['temp', 'CO2'] as MetricKey[] : undefined}
+          visibleMetrics={(getDeviceType(deviceId).prefix === 'mlh' || getDeviceType(deviceId).prefix === 'mlh500' || getDeviceType(deviceId).prefix === 'csm') ? ['temp', 'CO2'] as MetricKey[] : undefined}
         />
       )}
 
