@@ -24,6 +24,7 @@ export default function Sidebar() {
     { name: 'Devices', icon: 'device', href: '/dashboard' },
 { name: deviceId?.toLowerCase().startsWith('mlh') ? 'Machines' : deviceId?.toLowerCase().startsWith('csm') ? 'Units' : 'Rooms', icon: 'room', href: `/device/${deviceId}/${deviceId?.toLowerCase().startsWith('mlh') ? 'machines' : deviceId?.toLowerCase().startsWith('csm') ? 'units' : 'rooms'}` },
     { name: 'Graphs', icon: 'chart', href: `/device/${deviceId}/graphs` },
+    ...(deviceType?.prefix === 'mlh500' ? [{ name: 'Consumption', icon: 'consumption', href: `/device/${deviceId}/consumption` }] : []),
     { name: 'Settings', icon: 'settings', href: `/device/${deviceId}/settings` },
   ] : [
     { name: 'Devices', icon: 'device', href: '/dashboard' },
@@ -39,6 +40,7 @@ export default function Sidebar() {
   const isActive = (href: string) => {
 if (href.endsWith('/rooms') || href.endsWith('/machines') || href.endsWith('/units')) return pathname.includes('/rooms') || pathname.includes('/machines') || pathname.includes('/units')
     if (href.endsWith('/graphs')) return pathname.includes('/graphs')
+    if (href.endsWith('/consumption')) return pathname.includes('/consumption')
     return pathname === href
   }
 
@@ -98,6 +100,11 @@ if (href.endsWith('/rooms') || href.endsWith('/machines') || href.endsWith('/uni
                 {item.icon === 'chart' && (
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                  </svg>
+                )}
+                {item.icon === 'consumption' && (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
                   </svg>
                 )}
                 {item.icon === 'settings' && (
