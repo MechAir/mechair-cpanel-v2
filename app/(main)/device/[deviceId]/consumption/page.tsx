@@ -139,7 +139,7 @@ export default function ConsumptionPage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-700 mb-1">No Energy Meter Connected</h3>
           <p className="text-sm text-gray-400 max-w-md mx-auto">
-            Connect the RS485 energy meter to the Arduino and enable meter polling in firmware. Data will appear here automatically once readings are received.
+            Connect the RS485 energy meter. Data will appear here automatically once readings are received.
           </p>
         </div>
       )}
