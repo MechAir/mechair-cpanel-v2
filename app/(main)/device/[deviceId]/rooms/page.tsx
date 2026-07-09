@@ -614,7 +614,7 @@ export default function DeviceRoomsPage() {
 
         let fetchedRooms: RoomData[] = []
         if (stateData.success) {
-          fetchedRooms = stateData.data.rooms
+          fetchedRooms = stateData.data.rooms.map((r: any) => ({ ...r, id: String(r.id).startsWith('room-') ? r.id : `room-${r.id}` }))
           setIsAuto(stateData.data.mode === 'auto')
           if (isCsm && (stateData.data.sysFail1 !== undefined || stateData.data.sysFail2 !== undefined)) {
             setSysFail({ unit1: !!stateData.data.sysFail1, unit2: !!stateData.data.sysFail2 })
