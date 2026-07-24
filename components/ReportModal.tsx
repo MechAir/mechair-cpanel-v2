@@ -777,19 +777,39 @@ const isMlh = deviceId.toLowerCase().startsWith('mlh') || deviceId.toLowerCase()
                         evt.metric === currentRoomId ||
                         (!String(evt.metric).startsWith('room-'))
                     )
-                    eventRows = filteredEvents.map((evt: any) => {
+                    eventRows = filteredEvents.flatMap((evt: any) => {
+                        const ts = typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime()
+                        const dateTime = formatFullDate(typeof evt.timestamp === 'number' ? evt.timestamp : evt.timestamp)
+                        const note = evt.note || evt.eventType || ''
+                        const isMlh250 = isMlh && !deviceId.toLowerCase().startsWith('mlh500')
+
+                        // MLH250 SOV events → split into Heating SOV + Cooling SOV rows
+                        if (isMlh250 && /SOV\s*(ON|OFF)/i.test(note)) {
+                            const sovOn = /SOV\s*ON/i.test(note)
+                            const prefix = note.replace(/\s*SOV\s*(ON|OFF)/i, '').trim()
+                            const makeRow = (eventText: string) => {
+                                const row: any = { _ts: ts, _type: 'event' as const, 'Date & Time': dateTime, 'Type': humanizeType(evt.eventType), 'Temperature (°C)': '', 'Humidity (%)': '' }
+                                row['Event'] = `[${evt.source || 'system'}] ${eventText}`
+                                return row
+                            }
+                            return [
+                                makeRow(`${prefix} Heating SOV ${sovOn ? 'ON' : 'OFF'}`),
+                                makeRow(`${prefix} Cooling SOV ${sovOn ? 'OFF' : 'ON'}`)
+                            ]
+                        }
+
                         const row: any = {
-                            _ts: typeof evt.timestamp === 'number' ? evt.timestamp : new Date(evt.timestamp).getTime(),
+                            _ts: ts,
                             _type: 'event' as const,
-                            'Date & Time': formatFullDate(typeof evt.timestamp === 'number' ? evt.timestamp : evt.timestamp),
+                            'Date & Time': dateTime,
                             'Type': humanizeType(evt.eventType),
                             'Temperature (°C)': '',
                         }
                         if (!isMlh) row['CO₂ (ppm)'] = ''
                         row['Humidity (%)'] = ''
                         if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = ''
-                        row['Event'] = `[${evt.source || 'system'}] ${evt.note || evt.eventType || ''}`
-                        return row
+                        row['Event'] = `[${evt.source || 'system'}] ${note}`
+                        return [row]
                     })
                 }
             } catch (e) {
