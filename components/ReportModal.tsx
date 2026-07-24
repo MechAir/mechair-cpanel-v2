@@ -735,15 +735,15 @@ const isMlh = deviceId.toLowerCase().startsWith('mlh') || deviceId.toLowerCase()
 
                 if (isAlarm) {
                     const s7 = (r as any).sensor7 ?? {}
-                    row['Alarm Temp (°C)'] = isFinite(s7.temp) ? s7.temp : 0
-                    row['Alarm Humid (%)'] = isFinite(s7.humidity) ? s7.humidity : 0
+                    row['Alarm Temp (°C)'] = isFinite(s7.temp) ? parseFloat(s7.temp.toFixed(2)) : 0
+                    row['Alarm Humid (%)'] = isFinite(s7.humidity) ? parseFloat(s7.humidity.toFixed(2)) : 0
                     let tempSum = 0, humidSum = 0, count = 0
                     for (let m = 1; m <= 6; m++) {
                         const rm = (r as any)[`room${m}`] ?? {}
                         const mt = isFinite(rm.temp) ? rm.temp : 0
                         const mh = isFinite(rm.CO2) ? rm.CO2 : (isFinite(rm.humidity) ? rm.humidity : 0)
-                        row[`M${m} Temp (°C)`] = mt
-                        row[`M${m} Humid (%)`] = mh
+                        row[`M${m} Temp (°C)`] = parseFloat(mt.toFixed(2))
+                        row[`M${m} Humid (%)`] = parseFloat(mh.toFixed(2))
                         tempSum += mt; humidSum += mh; count++
                     }
                     row['Event'] = ''
@@ -751,10 +751,10 @@ const isMlh = deviceId.toLowerCase().startsWith('mlh') || deviceId.toLowerCase()
                     row['Avg Humid (%)'] = count > 0 ? parseFloat((humidSum / count).toFixed(1)) : 0
                 } else {
                     const room = (r as any)[`room${roomIdx}`] ?? {}
-                    row['Temperature (°C)'] = extractMetric(r, roomKey, 'temp')
-                    if (!isMlh) row['CO₂ (ppm)'] = extractMetric(r, roomKey, 'CO2')
-                    row['Humidity (%)'] = isMlh ? extractMetric(r, roomKey, 'CO2') : extractMetric(r, roomKey, 'O2')
-                    if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = extractMetric(r, roomKey, 'C2H4')
+                    row['Temperature (°C)'] = parseFloat(extractMetric(r, roomKey, 'temp').toFixed(2))
+                    if (!isMlh) row['CO₂ (ppm)'] = parseFloat(extractMetric(r, roomKey, 'CO2').toFixed(2))
+                    row['Humidity (%)'] = parseFloat((isMlh ? extractMetric(r, roomKey, 'CO2') : extractMetric(r, roomKey, 'O2')).toFixed(2))
+                    if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = parseFloat(extractMetric(r, roomKey, 'C2H4').toFixed(2))
                     row['Event'] = ''
                 }
                 return row
