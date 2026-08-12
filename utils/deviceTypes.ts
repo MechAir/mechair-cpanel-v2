@@ -64,7 +64,7 @@ export const DEVICE_TYPES: Record<string, DeviceTypeConfig> = {
     color: '#1D6B35',
     badgeBg: 'bg-green-800',
     roomLabel: 'Machine',
-    sensors: ['temp', 'humidity'],
+    sensors: ['temp', 'humidity', 'vfd'],
     relays: ['compressor1', 'compressor2', 'fan'],
     settingsTabs: ['timings', 'manual', 'calibration', 'enabled-rooms', 'limits'],
   },
