@@ -759,6 +759,10 @@ const isMlh = deviceId.toLowerCase().startsWith('mlh') || deviceId.toLowerCase()
                     if (!isMlh) row['CO₂ (ppm)'] = parseFloat(extractMetric(r, roomKey, 'CO2').toFixed(2))
                     row['Humidity (%)'] = parseFloat((isMlh ? extractMetric(r, roomKey, 'CO2') : extractMetric(r, roomKey, 'O2')).toFixed(2))
                     if (!isMlh) row['C₂H₄ / Ethylene (ppm)'] = parseFloat(extractMetric(r, roomKey, 'C2H4').toFixed(2))
+                    if (deviceId.toLowerCase().startsWith('mlh500')) {
+                      const vfdVal = room?.vfd ?? 0
+                      row['VFD (%)'] = parseFloat((isFinite(vfdVal) ? vfdVal : 0).toFixed(1))
+                    }
                     row['Event'] = ''
                 }
                 return row
