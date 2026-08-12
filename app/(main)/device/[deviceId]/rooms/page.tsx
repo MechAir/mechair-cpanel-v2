@@ -26,6 +26,7 @@ interface RoomData {
   fanOn?: boolean
   comp1On?: boolean
   comp2On?: boolean
+  vfd?: number
   // Recipe runtime status (sent from ESP32)
   recipeName?: string | null
   recipeStep?: number
@@ -270,9 +271,10 @@ function Mlh500MachineCard({ room, isManual, hasPendingChange, pendingOff, onTog
         </div>
         <div className={`w-3 h-3 rounded-full ${isManual ? 'bg-white/30' : room.isOn ? 'bg-green-400' : 'bg-red-400'}`} />
       </div>
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="bg-white/10 rounded-lg p-2"><p className="text-white/60 text-[10px]">Temperature</p><p className="text-white font-semibold text-sm">{room.temp?.toFixed(1) ?? '--'}°C</p></div>
         <div className="bg-white/10 rounded-lg p-2"><p className="text-white/60 text-[10px]">Humidity</p><p className="text-white font-semibold text-sm">{room.humid?.toFixed(1) ?? '--'}%</p></div>
+        <div className="bg-white/10 rounded-lg p-2"><p className="text-white/60 text-[10px]">VFD</p><p className="text-white font-semibold text-sm">{room.vfd?.toFixed(1) ?? '--'}%</p></div>
       </div>
       {isManual ? (
         <div className="flex gap-2">
@@ -581,7 +583,7 @@ export default function DeviceRoomsPage() {
         if (!r) return room
         // CSM: relay states (comp/sov) come only from /state topic, not readings — avoids stale relay flash on refresh
         if (isCsm) return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid }
-        if (isMlh500) return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid }
+        if (isMlh500) return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid, vfd: r.vfd ?? room.vfd }
         return { ...room, temp: r.temp ?? room.temp, humid: r.humidity ?? room.humid, compOn: r.compressor ?? room.compOn, sovOn: r.sov ?? room.sovOn }
       } else {
         // EMS nested shape: { room1: { temp, CO2, O2, c2h4 } }
@@ -771,6 +773,7 @@ export default function DeviceRoomsPage() {
               ...(r.comp1On   !== undefined && { comp1On: r.comp1On }),
               ...(r.comp2     !== undefined && { comp2On: r.comp2 }),
               ...(r.comp2On   !== undefined && { comp2On: r.comp2On }),
+              ...(r.vfd       !== undefined && { vfd: r.vfd }),
               // Recipe fields — pass through if present
               ...(r.recipeName           !== undefined && { recipeName: r.recipeName }),
               ...(r.recipeStep           !== undefined && { recipeStep: r.recipeStep }),
