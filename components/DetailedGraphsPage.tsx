@@ -38,6 +38,7 @@ const MLH_METRIC_META = {
   CO2: { unit: '%', label: 'Humidity', color: '#0891b2', triggerColor: '#EF4444', decimals: 1 },
   O2: { unit: '%', label: 'O₂', color: '#818CF8', triggerColor: '#EF4444', decimals: 2 },
   C2H4: { unit: 'ppm', label: 'C₂H₄', color: '#10B981', triggerColor: '#EF4444', decimals: 2 },
+  vfd: { unit: '%', label: 'VFD', color: '#F59E0B', triggerColor: '#EF4444', decimals: 1 },
 }
 
 const CSM_METRIC_META = {
@@ -50,7 +51,7 @@ const CSM_METRIC_META = {
 // This gets set once when the page loads based on device type
 let METRIC_META = EMS_METRIC_META
 
-type MetricKey = 'temp' | 'CO2' | 'O2' | 'C2H4'
+type MetricKey = 'temp' | 'CO2' | 'O2' | 'C2H4' | 'vfd'
 type RangeMode = 'live' | 'last_hour' | '6h' | '1d' | '1w' | 'month' | 'custom'
 
 interface TimeRange {
@@ -207,6 +208,7 @@ function extractMetric(reading: RangeReading, roomKey: string, metricKey: Metric
   if (!room) return 0
   if (metricKey === 'temp') return isFinite(room.temp) ? room.temp : 0
   if (metricKey === 'CO2') return isFinite(room.CO2) ? room.CO2 : (isFinite(room.humidity) ? room.humidity : 0)
+  if (metricKey === 'vfd') return isFinite(room.vfd) ? room.vfd : 0
   if (metricKey === 'O2') return isFinite(room.O2) ? room.O2 : 0
   if (metricKey === 'C2H4') return isFinite(room.c2h4) ? room.c2h4 : 0
   return 0
@@ -1252,7 +1254,7 @@ function buildEventsUrl(deviceId: string, range: TimeRange): string {
 }
 
 interface AllData {
-  temp: number[]; co2: number[]; o2: number[]; c2h4: number[]
+  temp: number[]; co2: number[]; o2: number[]; c2h4: number[]; vfd: number[]
   triggersCO2: boolean[]
   triggersC2H4: boolean[]
   timestamps: number[]            // ms epoch per reading point
@@ -1260,7 +1262,7 @@ interface AllData {
   intervalsC2H4: RelayInterval[]  // SOV ON/OFF intervals (exact event times)
   labels: string[]
   loading: boolean
-  latestTemp?: number; latestCO2?: number; latestO2?: number; latestC2H4?: number
+  latestTemp?: number; latestCO2?: number; latestO2?: number; latestC2H4?: number; latestVFD?: number
 }
 
 export default function DetailedGraphsPage() {
@@ -1273,7 +1275,7 @@ export default function DetailedGraphsPage() {
   const [showReport, setShowReport] = useState(false)
   const [timeRange, setTimeRange] = useState<TimeRange>({ mode: 'live' })
   const [allData, setAllData] = useState<AllData>({
-    temp: [], co2: [], o2: [], c2h4: [],
+    temp: [], co2: [], o2: [], c2h4: [], vfd: [],
     triggersCO2: [], triggersC2H4: [],
     timestamps: [], intervalsCO2: [], intervalsC2H4: [],
     labels: [], loading: false,
@@ -1322,7 +1324,7 @@ export default function DetailedGraphsPage() {
   // so the graph isn't empty — then the WebSocket takes over and streams new data.
   useEffect(() => {
     if (timeRange.mode !== 'live') return
-    setAllData({ temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], timestamps: [], intervalsCO2: [], intervalsC2H4: [], labels: [], loading: true })
+    setAllData({ temp: [], co2: [], o2: [], c2h4: [], vfd: [], triggersCO2: [], triggersC2H4: [], timestamps: [], intervalsCO2: [], intervalsC2H4: [], labels: [], loading: true })
     setLiveStatus('connecting')
 
     // Seed with last 15 readings + relay events for trigger bands
@@ -1370,6 +1372,7 @@ export default function DetailedGraphsPage() {
           co2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
           o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
           c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
+          vfd: readings.map(r => extractMetric(r, roomKey, 'vfd')),
           triggersCO2: buildTriggerArrayFromIntervals(exhIntervals, tsMs),
           triggersC2H4: buildTriggerArrayFromIntervals(sovIntervals, tsMs),
           timestamps: tsMs,
@@ -1557,7 +1560,7 @@ export default function DetailedGraphsPage() {
 
   // ── Range mode (non-live) ─────────────────────────────────────────────────
   const fetchRange = useCallback(async (range: TimeRange) => {
-    setAllData(prev => ({ ...prev, loading: true, temp: [], co2: [], o2: [], c2h4: [], triggersCO2: [], triggersC2H4: [], timestamps: [], intervalsCO2: [], intervalsC2H4: [], labels: [] }))
+    setAllData(prev => ({ ...prev, loading: true, temp: [], co2: [], o2: [], c2h4: [], vfd: [], triggersCO2: [], triggersC2H4: [], timestamps: [], intervalsCO2: [], intervalsC2H4: [], labels: [] }))
     try {
       const [readingsRes, eventsRes] = await Promise.all([
         fetch(buildRangeUrl(deviceId, range)),
@@ -1602,6 +1605,7 @@ export default function DetailedGraphsPage() {
         latestCO2: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'CO2') : undefined,
         latestO2: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'O2') : undefined,
         latestC2H4: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'C2H4') : undefined,
+        latestVFD: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'vfd') : undefined,
       })
     } catch { setAllData(prev => ({ ...prev, loading: false })) }
   }, [deviceId, roomId])
@@ -1770,6 +1774,14 @@ export default function DetailedGraphsPage() {
               isLoading={allData.loading} onExpand={() => setExpandedMetric('O2')} />
           )
         }
+
+        // VFD graph — MLH500 only
+        const isMlh500 = dt.prefix === 'mlh500'
+        if (isMlh500) topCards.push(
+          <MetricGraph key="vfd" metricKey="vfd" data={allData.vfd} triggers={emptyTriggers} labels={allData.labels}
+            latestValue={timeRange.mode === 'live' ? latest[`${prefix}_vfd`] : allData.latestVFD}
+            isLoading={allData.loading} onExpand={() => setExpandedMetric('vfd')} />
+        )
 
         // For MLH/CSM: only show temp and humidity in combined, filter out CO2/C2H4
         const filteredCombinedDataMap: Record<MetricKey, number[]> = { ...combinedDataMap }
