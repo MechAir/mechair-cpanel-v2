@@ -7,7 +7,7 @@ import { useIoT } from '@/utils/useIoT'
 interface MeterData {
   va: number | null
   watts: number | null
-  pf: number | null
+  kwh: number | null
   freq: number | null
   lastUpdated: string | null
 }
@@ -21,7 +21,7 @@ export default function ConsumptionPage() {
   const deviceType = getDeviceType(deviceId)
 
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [meter, setMeter] = useState<MeterData>({ va: null, watts: null, pf: null, freq: null, lastUpdated: null })
+  const [meter, setMeter] = useState<MeterData>({ va: null, watts: null, kwh: null, freq: null, lastUpdated: null })
 
   useEffect(() => {
     const authStatus = localStorage.getItem('isAuthenticated')
@@ -41,7 +41,7 @@ export default function ConsumptionPage() {
           setMeter({
             va: m.va ?? null,
             watts: m.w ?? m.watts ?? null,
-            pf: m.pf ?? null,
+            kwh: m.kwh ?? null,
             freq: m.freq ?? null,
             lastUpdated: data.data.reading.timestamp ?? null,
           })
@@ -60,7 +60,7 @@ export default function ConsumptionPage() {
         setMeter({
           va: m.va ?? null,
           watts: m.w ?? m.watts ?? null,
-          pf: m.pf ?? null,
+          kwh: m.kwh ?? null,
           freq: m.freq ?? null,
           lastUpdated: new Date().toLocaleTimeString(),
         })
@@ -68,12 +68,12 @@ export default function ConsumptionPage() {
     }, [])
   )
 
-  const meterConnected = meter.va !== null || meter.watts !== null || meter.pf !== null || meter.freq !== null
+  const meterConnected = meter.va !== null || meter.watts !== null || meter.kwh !== null || meter.freq !== null
 
   const cards = [
-    { label: 'Apparent Power', value: meter.va, unit: 'VA', icon: '⚡', bg: 'bg-amber-50', text: 'text-amber-700' },
-    { label: 'Active Power', value: meter.watts, unit: 'W', icon: '🔌', bg: 'bg-blue-50', text: 'text-blue-700' },
-    { label: 'Power Factor', value: meter.pf, unit: '', icon: '📊', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+    { label: 'Apparent Power', value: meter.va, unit: 'kVA', icon: '⚡', bg: 'bg-amber-50', text: 'text-amber-700' },
+    { label: 'Active Power', value: meter.watts, unit: 'kW', icon: '🔌', bg: 'bg-blue-50', text: 'text-blue-700' },
+    { label: 'Energy', value: meter.kwh, unit: 'kWh', icon: '📊', bg: 'bg-emerald-50', text: 'text-emerald-700' },
     { label: 'Frequency', value: meter.freq, unit: 'Hz', icon: '〜', bg: 'bg-purple-50', text: 'text-purple-700' },
   ]
 
@@ -121,7 +121,7 @@ export default function ConsumptionPage() {
             </div>
             <div className="flex items-baseline gap-1.5">
               <span className={`text-3xl font-bold ${card.value !== null ? card.text : 'text-gray-300'}`}>
-                {card.value !== null ? (card.label === 'Power Factor' ? card.value.toFixed(2) : card.value.toFixed(1)) : '--'}
+                {card.value !== null ? card.value.toFixed(2) : '--'}
               </span>
               {card.unit && <span className="text-sm text-gray-400 font-medium">{card.unit}</span>}
             </div>
