@@ -40,7 +40,7 @@ export default function ConsumptionPage() {
           const m = data.data.reading.meter
           setMeter({
             va: m.va ?? null,
-            watts: m.watts ?? null,
+            watts: m.w ?? m.watts ?? null,
             pf: m.pf ?? null,
             freq: m.freq ?? null,
             lastUpdated: data.data.reading.timestamp ?? null,
@@ -59,7 +59,7 @@ export default function ConsumptionPage() {
         const m = payload.meter
         setMeter({
           va: m.va ?? null,
-          watts: m.watts ?? null,
+          watts: m.w ?? m.watts ?? null,
           pf: m.pf ?? null,
           freq: m.freq ?? null,
           lastUpdated: new Date().toLocaleTimeString(),
