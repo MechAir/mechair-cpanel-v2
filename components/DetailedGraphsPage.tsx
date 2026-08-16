@@ -1596,6 +1596,7 @@ export default function DetailedGraphsPage() {
         co2: readings.map(r => extractMetric(r, roomKey, 'CO2')),
         o2: readings.map(r => extractMetric(r, roomKey, 'O2')),
         c2h4: readings.map(r => extractMetric(r, roomKey, 'C2H4')),
+        vfd: readings.map(r => extractMetric(r, roomKey, 'vfd')),
         triggersCO2: buildTriggerArrayFromIntervals(exhIntervals, tsMs),
         triggersC2H4: buildTriggerArrayFromIntervals(sovIntervals, tsMs),
         timestamps: tsMs,
