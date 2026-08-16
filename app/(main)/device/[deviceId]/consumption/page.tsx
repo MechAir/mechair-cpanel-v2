@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { getDeviceType } from '@/utils/deviceTypes'
 import { useIoT } from '@/utils/useIoT'
@@ -12,7 +12,88 @@ interface MeterData {
   lastUpdated: string | null
 }
 
+interface MeterReading {
+  timestamp: string
+  amp: number
+  watts: number
+  kwh: number
+  freq: number
+}
+
+type HistoryRange = '1h' | '6h' | '1d' | '1w' | 'custom'
+
+const RANGE_OPTIONS: { key: HistoryRange; label: string }[] = [
+  { key: '1h', label: '1 Hour' },
+  { key: '6h', label: '6 Hours' },
+  { key: '1d', label: '24 Hours' },
+  { key: '1w', label: '7 Days' },
+  { key: 'custom', label: 'Custom' },
+]
+
+const METER_METRICS = [
+  { key: 'amp' as const, label: 'Current', unit: 'A', color: '#F59E0B' },
+  { key: 'watts' as const, label: 'Active Power', unit: 'kW', color: '#3B82F6' },
+  { key: 'kwh' as const, label: 'Energy', unit: 'kWh', color: '#10B981' },
+  { key: 'freq' as const, label: 'Frequency', unit: 'Hz', color: '#8B5CF6' },
+]
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cpanel.backend.mechair.co.in/api'
+
+// ── Mini SVG Line Chart ──────────────────────────────────────────────
+function MiniChart({ data, color, label, unit }: { data: number[]; color: string; label: string; unit: string }) {
+  const W = 600, H = 160, PAD = 40
+  const valid = data.filter(v => isFinite(v) && v !== 0)
+  if (valid.length < 2) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 p-4">
+        <p className="text-sm font-medium text-gray-500 mb-2">{label} ({unit})</p>
+        <div className="h-[160px] flex items-center justify-center text-gray-300 text-sm">No data</div>
+      </div>
+    )
+  }
+  const min = Math.min(...valid)
+  const max = Math.max(...valid)
+  const range = max - min || 1
+  const plotW = W - PAD * 2
+  const plotH = H - PAD
+
+  const points = data.map((v, i) => {
+    const x = PAD + (i / (data.length - 1)) * plotW
+    const y = H - PAD - ((v - min) / range) * plotH
+    return `${x},${y}`
+  }).join(' ')
+
+  // Y-axis labels
+  const ySteps = 4
+  const yLabels = Array.from({ length: ySteps + 1 }, (_, i) => {
+    const val = min + (range * i) / ySteps
+    return { val, y: H - PAD - (i / ySteps) * plotH }
+  })
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-4">
+      <p className="text-sm font-medium text-gray-500 mb-2">{label} ({unit})</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }}>
+        {/* Grid lines */}
+        {yLabels.map((yl, i) => (
+          <g key={i}>
+            <line x1={PAD} y1={yl.y} x2={W - PAD} y2={yl.y} stroke="#f0f0f0" strokeWidth={1} />
+            <text x={PAD - 4} y={yl.y + 4} textAnchor="end" fill="#999" fontSize={10}>
+              {yl.val.toFixed(yl.val >= 100 ? 0 : yl.val >= 1 ? 1 : 3)}
+            </text>
+          </g>
+        ))}
+        {/* Line */}
+        <polyline points={points} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        {/* Area fill */}
+        <polygon
+          points={`${PAD},${H - PAD} ${points} ${W - PAD},${H - PAD}`}
+          fill={color} opacity={0.08}
+        />
+      </svg>
+    </div>
+  )
+}
 
 export default function ConsumptionPage() {
   const router = useRouter()
@@ -22,6 +103,14 @@ export default function ConsumptionPage() {
 
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [meter, setMeter] = useState<MeterData>({ amp: null, watts: null, kwh: null, freq: null, lastUpdated: null })
+
+  // History state
+  const [historyRange, setHistoryRange] = useState<HistoryRange>('1h')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [history, setHistory] = useState<MeterReading[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     const authStatus = localStorage.getItem('isAuthenticated')
@@ -68,6 +157,146 @@ export default function ConsumptionPage() {
     }, [])
   )
 
+  // Fetch history
+  const fetchHistory = useCallback(async () => {
+    if (!deviceId) return
+    setHistoryLoading(true)
+    try {
+      const params = new URLSearchParams({ mode: 'custom' })
+      const now = new Date()
+      switch (historyRange) {
+        case '1h':
+          params.set('from', new Date(now.getTime() - 60 * 60 * 1000).toISOString())
+          params.set('to', now.toISOString())
+          break
+        case '6h':
+          params.set('from', new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString())
+          params.set('to', now.toISOString())
+          break
+        case '1d':
+          params.set('from', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
+          params.set('to', now.toISOString())
+          break
+        case '1w':
+          params.set('from', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          params.set('to', now.toISOString())
+          break
+        case 'custom':
+          if (customFrom && customTo) {
+            params.set('from', new Date(customFrom).toISOString())
+            params.set('to', new Date(customTo).toISOString())
+          } else {
+            setHistoryLoading(false)
+            return
+          }
+          break
+      }
+      const res = await fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params}`)
+      const json = await res.json()
+      if (json.success) {
+        const readings = (json.data.readings ?? [])
+          .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          .filter((r: any) => r.meter)
+          .map((r: any) => ({
+            timestamp: r.timestamp,
+            amp: r.meter?.amp ?? r.meter?.va ?? 0,
+            watts: r.meter?.w ?? r.meter?.watts ?? 0,
+            kwh: r.meter?.kwh ?? 0,
+            freq: r.meter?.freq ?? 0,
+          }))
+        setHistory(readings)
+      }
+    } catch (e) {
+      console.error('Failed to fetch history:', e)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [deviceId, historyRange, customFrom, customTo])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    fetchHistory()
+  }, [isAuthenticated, historyRange, fetchHistory])
+
+  // Export CSV
+  const exportCSV = useCallback(() => {
+    if (history.length === 0) return
+    const header = 'Timestamp,Current (A),Active Power (kW),Energy (kWh),Frequency (Hz)\n'
+    const rows = history.map(r =>
+      `${r.timestamp},${r.amp.toFixed(3)},${r.watts.toFixed(3)},${r.kwh.toFixed(3)},${r.freq.toFixed(2)}`
+    ).join('\n')
+    const blob = new Blob([header + rows], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `consumption_${deviceId}_${historyRange}_${Date.now()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [history, deviceId, historyRange])
+
+  // Export Excel
+  const exportExcel = useCallback(async () => {
+    if (history.length === 0) return
+    setExporting(true)
+    try {
+      const { utils, writeFile } = await import('xlsx')
+      const wsData = [
+        ['Timestamp', 'Current (A)', 'Active Power (kW)', 'Energy (kWh)', 'Frequency (Hz)'],
+        ...history.map(r => [
+          r.timestamp,
+          Number(r.amp.toFixed(3)),
+          Number(r.watts.toFixed(3)),
+          Number(r.kwh.toFixed(3)),
+          Number(r.freq.toFixed(2)),
+        ])
+      ]
+      const ws = utils.aoa_to_sheet(wsData)
+
+      // Auto-width columns
+      ws['!cols'] = [
+        { wch: 22 },
+        { wch: 14 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 16 },
+      ]
+
+      const wb = utils.book_new()
+      utils.book_append_sheet(wb, ws, 'Consumption')
+
+      // Summary sheet
+      const stats = METER_METRICS.map(m => {
+        const vals = history.map(r => r[m.key]).filter(v => isFinite(v) && v !== 0)
+        if (vals.length === 0) return [m.label, m.unit, 0, '--', '--', '--']
+        return [
+          m.label,
+          m.unit,
+          vals.length,
+          Math.min(...vals).toFixed(3),
+          Math.max(...vals).toFixed(3),
+          (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(3),
+        ]
+      })
+      const summaryData = [
+        ['Parameter', 'Unit', 'Points', 'Min', 'Max', 'Avg'],
+        ...stats,
+        [],
+        ['Device', deviceId],
+        ['Range', historyRange === 'custom' ? `${customFrom} to ${customTo}` : historyRange],
+        ['Generated', new Date().toLocaleString()],
+      ]
+      const ws2 = utils.aoa_to_sheet(summaryData)
+      ws2['!cols'] = [{ wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }]
+      utils.book_append_sheet(wb, ws2, 'Summary')
+
+      writeFile(wb, `consumption_${deviceId}_${historyRange}_${Date.now()}.xlsx`)
+    } catch (e) {
+      console.error('Excel export failed:', e)
+    } finally {
+      setExporting(false)
+    }
+  }, [history, deviceId, historyRange, customFrom, customTo])
+
   const meterConnected = meter.amp !== null || meter.watts !== null || meter.kwh !== null || meter.freq !== null
 
   const cards = [
@@ -76,6 +305,19 @@ export default function ConsumptionPage() {
     { label: 'Energy', value: meter.kwh, unit: 'kWh', icon: '📊', bg: 'bg-emerald-50', text: 'text-emerald-700' },
     { label: 'Frequency', value: meter.freq, unit: 'Hz', icon: '〜', bg: 'bg-purple-50', text: 'text-purple-700' },
   ]
+
+  // Stats from history
+  const stats = METER_METRICS.map(m => {
+    const vals = history.map(r => r[m.key]).filter(v => isFinite(v) && v !== 0)
+    if (vals.length === 0) return { ...m, min: null, max: null, avg: null, count: 0 }
+    return {
+      ...m,
+      min: Math.min(...vals),
+      max: Math.max(...vals),
+      avg: vals.reduce((a, b) => a + b, 0) / vals.length,
+      count: vals.length,
+    }
+  })
 
   if (!isAuthenticated) {
     return <div className="h-full flex items-center justify-center"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#2B8DB8]" /></div>
@@ -111,7 +353,7 @@ export default function ConsumptionPage() {
         </div>
       </div>
 
-      {/* Metric Cards */}
+      {/* Live Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {cards.map(card => (
           <div key={card.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
@@ -129,8 +371,149 @@ export default function ConsumptionPage() {
         ))}
       </div>
 
-      {/* Empty state */}
-      {!meterConnected && (
+      {/* History Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800">History</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {RANGE_OPTIONS.map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setHistoryRange(opt.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  historyRange === opt.key
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Custom date pickers */}
+        {historyRange === 'custom' && (
+          <div className="flex flex-wrap items-end gap-3 mb-6">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">From</label>
+              <input
+                type="datetime-local"
+                value={customFrom}
+                onChange={e => setCustomFrom(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">To</label>
+              <input
+                type="datetime-local"
+                value={customTo}
+                onChange={e => setCustomTo(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
+              />
+            </div>
+            <button
+              onClick={fetchHistory}
+              className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              Fetch
+            </button>
+          </div>
+        )}
+
+        {/* Loading */}
+        {historyLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500" />
+            <span className="ml-3 text-sm text-gray-500">Loading history...</span>
+          </div>
+        )}
+
+        {/* Charts */}
+        {!historyLoading && history.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {METER_METRICS.map(m => (
+                <MiniChart
+                  key={m.key}
+                  data={history.map(r => r[m.key])}
+                  color={m.color}
+                  label={m.label}
+                  unit={m.unit}
+                />
+              ))}
+            </div>
+
+            {/* Stats Table */}
+            <div className="overflow-x-auto mb-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Parameter</th>
+                    <th className="text-left py-2 px-3 text-gray-500 font-medium">Unit</th>
+                    <th className="text-right py-2 px-3 text-gray-500 font-medium">Points</th>
+                    <th className="text-right py-2 px-3 text-gray-500 font-medium">Min</th>
+                    <th className="text-right py-2 px-3 text-gray-500 font-medium">Max</th>
+                    <th className="text-right py-2 px-3 text-gray-500 font-medium">Avg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.map(s => (
+                    <tr key={s.key} className="border-b border-gray-50">
+                      <td className="py-2 px-3 font-medium" style={{ color: s.color }}>{s.label}</td>
+                      <td className="py-2 px-3 text-gray-400">{s.unit}</td>
+                      <td className="py-2 px-3 text-right text-gray-600">{s.count}</td>
+                      <td className="py-2 px-3 text-right text-gray-600">{s.min !== null ? s.min.toFixed(3) : '--'}</td>
+                      <td className="py-2 px-3 text-right text-gray-600">{s.max !== null ? s.max.toFixed(3) : '--'}</td>
+                      <td className="py-2 px-3 text-right text-gray-600">{s.avg !== null ? s.avg.toFixed(3) : '--'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Export Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={exportCSV}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+              </button>
+              <button
+                onClick={exportExcel}
+                disabled={exporting}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {exporting ? 'Exporting...' : 'Export Excel'}
+              </button>
+              <span className="text-xs text-gray-400">{history.length} readings</span>
+            </div>
+          </>
+        )}
+
+        {/* No data */}
+        {!historyLoading && history.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <p className="text-sm text-gray-400">No meter readings found for this period</p>
+          </div>
+        )}
+      </div>
+
+      {/* Empty state for no meter at all */}
+      {!meterConnected && history.length === 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
