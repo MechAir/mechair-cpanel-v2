@@ -5,7 +5,7 @@ import { getDeviceType } from '@/utils/deviceTypes'
 import { useIoT } from '@/utils/useIoT'
 
 interface MeterData {
-  va: number | null
+  amp: number | null
   watts: number | null
   kwh: number | null
   freq: number | null
@@ -21,7 +21,7 @@ export default function ConsumptionPage() {
   const deviceType = getDeviceType(deviceId)
 
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [meter, setMeter] = useState<MeterData>({ va: null, watts: null, kwh: null, freq: null, lastUpdated: null })
+  const [meter, setMeter] = useState<MeterData>({ amp: null, watts: null, kwh: null, freq: null, lastUpdated: null })
 
   useEffect(() => {
     const authStatus = localStorage.getItem('isAuthenticated')
@@ -39,7 +39,7 @@ export default function ConsumptionPage() {
         if (data.success && data.data?.reading?.meter) {
           const m = data.data.reading.meter
           setMeter({
-            va: m.va ?? null,
+            amp: m.amp ?? null,
             watts: m.w ?? m.watts ?? null,
             kwh: m.kwh ?? null,
             freq: m.freq ?? null,
@@ -58,7 +58,7 @@ export default function ConsumptionPage() {
       if (topic.endsWith('/readings') && payload.meter) {
         const m = payload.meter
         setMeter({
-          va: m.va ?? null,
+          amp: m.amp ?? null,
           watts: m.w ?? m.watts ?? null,
           kwh: m.kwh ?? null,
           freq: m.freq ?? null,
@@ -68,10 +68,10 @@ export default function ConsumptionPage() {
     }, [])
   )
 
-  const meterConnected = meter.va !== null || meter.watts !== null || meter.kwh !== null || meter.freq !== null
+  const meterConnected = meter.amp !== null || meter.watts !== null || meter.kwh !== null || meter.freq !== null
 
   const cards = [
-    { label: 'Apparent Power', value: meter.va, unit: 'kVA', icon: '⚡', bg: 'bg-amber-50', text: 'text-amber-700' },
+    { label: 'Current', value: meter.amp, unit: 'A', icon: '⚡', bg: 'bg-amber-50', text: 'text-amber-700' },
     { label: 'Active Power', value: meter.watts, unit: 'kW', icon: '🔌', bg: 'bg-blue-50', text: 'text-blue-700' },
     { label: 'Energy', value: meter.kwh, unit: 'kWh', icon: '📊', bg: 'bg-emerald-50', text: 'text-emerald-700' },
     { label: 'Frequency', value: meter.freq, unit: 'Hz', icon: '〜', bg: 'bg-purple-50', text: 'text-purple-700' },
