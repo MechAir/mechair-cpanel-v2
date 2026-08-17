@@ -70,8 +70,9 @@ export default function ConsumptionPage() {
       try {
         const res = await fetch(`${API_BASE}/devices/${deviceId}/readings/latest`)
         const data = await res.json()
-        if (data.success && data.data?.reading?.meter) {
-          const m = data.data.reading.meter
+        if (data.success && data.data?.reading) {
+          const m = data.data.reading.meter || data.data.reading.roomData?.meter
+          if (m) {
           setMeter({
             amp: m.amp ?? m.va ?? null,
             watts: m.w ?? m.watts ?? null,
@@ -79,6 +80,7 @@ export default function ConsumptionPage() {
             freq: m.freq ?? null,
             lastUpdated: data.data.reading.timestamp ?? null,
           })
+          }
         }
       } catch {}
     }
@@ -89,8 +91,8 @@ export default function ConsumptionPage() {
   useIoT(
     [`devices/${deviceId}/readings`],
     useCallback(({ topic, payload }) => {
-      if (topic.endsWith('/readings') && payload.meter) {
-        const m = payload.meter
+      if (topic.endsWith('/readings') && (payload.meter || payload.roomData?.meter)) {
+        const m = payload.meter || payload.roomData?.meter
         setMeter({
           amp: m.amp ?? m.va ?? null,
           watts: m.w ?? m.watts ?? null,
@@ -140,7 +142,16 @@ export default function ConsumptionPage() {
       const res = await fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params}`)
       const json = await res.json()
       if (json.success) {
-        const readings = (json.data.readings ?? [])
+        const raw = json.data.readings ?? []
+        if (raw.length > 0) {
+          console.log('First reading keys:', Object.keys(raw[0]))
+          console.log('Has meter?', !!raw[0].meter)
+          console.log('Has roomData?', !!raw[0].roomData)
+          console.log('Has roomData.meter?', !!raw[0].roomData?.meter)
+        } else {
+          console.log('No readings returned from API')
+        }
+        const readings = (raw)
           .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
           .filter((r: any) => r.meter || r.roomData?.meter)
           .map((r: any) => {
