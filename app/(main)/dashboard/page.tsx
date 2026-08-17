@@ -255,7 +255,8 @@ function DeviceCard({
   onAddSupervisor,
   onDeleteDevice,
   onPowerOffDevice,
-  onPowerOnDevice
+  onPowerOnDevice,
+  enabledRoomsMap
 }: {
   device: Device
   onClick: () => void
@@ -266,6 +267,7 @@ function DeviceCard({
   onDeleteDevice: () => void
   onPowerOffDevice: () => void
   onPowerOnDevice: () => void
+  enabledRoomsMap: Record<string, Record<string, boolean>>
 }) {
   const activeRooms = (device.rooms ?? []).filter(r => r.isOn).length
   const lastSeen = new Date(device.lastSeen)
@@ -720,8 +722,6 @@ export default function DashboardPage() {
     setIsAuthenticated(true)
   }, [router])
 
-  const [enabledRoomsMap, setEnabledRoomsMap] = useState<Record<string, Record<string, boolean>>>({})
-
   const fetchDevices = async () => {
     try {
       setError('')
@@ -1003,6 +1003,7 @@ export default function DashboardPage() {
               onDeleteDevice={() => setDeleteDevice(device)}
               onPowerOffDevice={() => setPowerOffDevice(device)}
               onPowerOnDevice={() => setPowerOnDevice(device)}
+              enabledRoomsMap={enabledRoomsMap}
             />
           ))}
         </div>
