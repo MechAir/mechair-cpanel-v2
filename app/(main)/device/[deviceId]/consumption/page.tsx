@@ -142,16 +142,7 @@ export default function ConsumptionPage() {
       const res = await fetch(`${API_BASE}/devices/${deviceId}/readings/range?${params}`)
       const json = await res.json()
       if (json.success) {
-        const raw = json.data.readings ?? []
-        if (raw.length > 0) {
-          console.log('First reading keys:', Object.keys(raw[0]))
-          console.log('Has meter?', !!raw[0].meter)
-          console.log('Has roomData?', !!raw[0].roomData)
-          console.log('Has roomData.meter?', !!raw[0].roomData?.meter)
-        } else {
-          console.log('No readings returned from API')
-        }
-        const readings = (raw)
+        const readings = (json.data.readings ?? [])
           .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
           .filter((r: any) => r.meter || r.roomData?.meter)
           .map((r: any) => {
