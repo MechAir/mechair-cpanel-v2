@@ -73,7 +73,7 @@ export default function ConsumptionPage() {
         if (data.success && data.data?.reading?.meter) {
           const m = data.data.reading.meter
           setMeter({
-            amp: m.amp ?? null,
+            amp: m.amp ?? m.va ?? null,
             watts: m.w ?? m.watts ?? null,
             kwh: m.kwh ?? null,
             freq: m.freq ?? null,
@@ -92,7 +92,7 @@ export default function ConsumptionPage() {
       if (topic.endsWith('/readings') && payload.meter) {
         const m = payload.meter
         setMeter({
-          amp: m.amp ?? null,
+          amp: m.amp ?? m.va ?? null,
           watts: m.w ?? m.watts ?? null,
           kwh: m.kwh ?? null,
           freq: m.freq ?? null,
