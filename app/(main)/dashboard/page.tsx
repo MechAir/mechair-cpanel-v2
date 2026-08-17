@@ -576,6 +576,7 @@ export default function DashboardPage() {
   const [deleteDevice, setDeleteDevice] = useState<Device | null>(null)
   const [powerOffDevice, setPowerOffDevice] = useState<Device | null>(null)
   const [powerOnDevice, setPowerOnDevice] = useState<Device | null>(null)
+  const [enabledRoomsMap, setEnabledRoomsMap] = useState<Record<string, Record<string, boolean>>>({})
 
   // ── Owner: User Management ──
   const [ownerUsers, setOwnerUsers] = useState<any[]>([])
