@@ -142,14 +142,17 @@ export default function ConsumptionPage() {
       if (json.success) {
         const readings = (json.data.readings ?? [])
           .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-          .filter((r: any) => r.meter)
-          .map((r: any) => ({
-            timestamp: r.timestamp,
-            amp: r.meter?.amp ?? r.meter?.va ?? 0,
-            watts: r.meter?.w ?? r.meter?.watts ?? 0,
-            kwh: r.meter?.kwh ?? 0,
-            freq: r.meter?.freq ?? 0,
-          }))
+          .filter((r: any) => r.meter || r.roomData?.meter)
+          .map((r: any) => {
+            const m = r.meter || r.roomData?.meter || {}
+            return {
+              timestamp: r.timestamp,
+              amp: m.amp ?? m.va ?? 0,
+              watts: m.w ?? m.watts ?? 0,
+              kwh: m.kwh ?? 0,
+              freq: m.freq ?? 0,
+            }
+          })
         setHistory(readings)
       }
     } catch (e) {
