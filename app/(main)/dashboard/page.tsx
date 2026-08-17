@@ -302,9 +302,12 @@ function DeviceCard({
             <p className="text-xs sm:text-sm font-semibold text-gray-800 truncate max-w-[120px] sm:max-w-none">
               {device.deviceId} {(!isPoweredOn) && <span className="ml-2 text-xs font-medium bg-red-100 text-red-600 px-2 py-0.5 rounded-full">OFF</span>}
             </p>
-            {(() => { const dt = getDeviceType(device.deviceId); return (
+            {(() => { const dt = getDeviceType(device.deviceId);
+              const er = enabledRoomsMap[device.deviceId]
+              const enabledCount = er ? Object.values(er).filter(v => v !== false).length : dt.rooms
+              return (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white mt-0.5 inline-block" style={{ backgroundColor: dt.color }}>
-                {dt.shortLabel} · {dt.rooms} {dt.roomLabel?.toLowerCase() === 'machine' ? 'machines' : dt.roomLabel?.toLowerCase() === 'unit' ? 'units' : 'rooms'}
+                {dt.shortLabel} · {enabledCount} {dt.roomLabel?.toLowerCase() === 'machine' ? 'machines' : dt.roomLabel?.toLowerCase() === 'unit' ? 'units' : 'rooms'}
               </span>
             )})()}
           </div>
@@ -316,16 +319,31 @@ function DeviceCard({
 
       {/* Room indicators */}
       <div className="flex gap-1.5 mb-4">
-{(device.rooms ?? []).map(room => (
-  <div key={room.id} title={room.name}
+{(() => {
+        const er = enabledRoomsMap[device.deviceId]
+        const filtered = er ? (device.rooms ?? []).filter(r => {
+          const idx = typeof r.id === 'string' ? r.id.replace('room-', '') : String(r.id)
+          return er[`Room ${idx}`] !== false && er[`r${idx}`] !== false
+        }) : (device.rooms ?? [])
+        return filtered.map(room => (
+          <div key={room.id} title={room.name}
             className={`flex-1 h-1.5 rounded-full transition-colors
               ${room.isOn ? 'bg-[#2B8DB8]' : 'bg-gray-200'}`} />
-        ))}
+        ))
+      })()}
       </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-gray-500 gap-2">
-        <span className="whitespace-nowrap">{activeRooms}/{(device.rooms ?? []).length} {device.deviceId?.toLowerCase().startsWith('mlh') ? 'machines' : device.deviceId?.toLowerCase().startsWith('csm') ? 'units' : 'rooms'} active</span>
+        {(() => {
+          const er = enabledRoomsMap[device.deviceId]
+          const filtered = er ? (device.rooms ?? []).filter(r => {
+            const idx = typeof r.id === 'string' ? r.id.replace('room-', '') : String(r.id)
+            return er[`Room ${idx}`] !== false && er[`r${idx}`] !== false
+          }) : (device.rooms ?? [])
+          const activeCount = filtered.filter(r => r.isOn).length
+          return <span className="whitespace-nowrap">{activeCount}/{filtered.length} {device.deviceId?.toLowerCase().startsWith('mlh') ? 'machines' : device.deviceId?.toLowerCase().startsWith('csm') ? 'units' : 'rooms'} active</span>
+        })()}
         <div className="flex items-center gap-1 whitespace-nowrap">
           <span className={`w-1.5 h-1.5 rounded-full ${minutesAgo < 5 ? 'bg-emerald-400' : minutesAgo < 60 ? 'bg-amber-400' : 'bg-gray-300'}`} />
           <span>{lastSeenLabel}</span>
@@ -701,12 +719,28 @@ export default function DashboardPage() {
     setIsAuthenticated(true)
   }, [router])
 
+  const [enabledRoomsMap, setEnabledRoomsMap] = useState<Record<string, Record<string, boolean>>>({})
+
   const fetchDevices = async () => {
     try {
       setError('')
       const res = await fetch(`${API_BASE}/devices`)
       const data = await res.json()
-      if (data.success) setDevices(data.data)
+      if (data.success) {
+        setDevices(data.data)
+        // Fetch enabled-rooms for MLH500 devices
+        for (const d of data.data) {
+          if (d.deviceId?.toLowerCase().startsWith('mlh500') || d.deviceId?.toLowerCase().startsWith('mlh')) {
+            try {
+              const erRes = await fetch(`${API_BASE}/devices/${d.deviceId}/settings/enabled-rooms`)
+              const erData = await erRes.json()
+              if (erData.success && erData.data?.enabledRooms) {
+                setEnabledRoomsMap(prev => ({ ...prev, [d.deviceId]: erData.data.enabledRooms }))
+              }
+            } catch {}
+          }
+        }
+      }
       else setError('Failed to load devices')
     } catch { setError('Cannot connect to server') }
     finally { setLoading(false) }
