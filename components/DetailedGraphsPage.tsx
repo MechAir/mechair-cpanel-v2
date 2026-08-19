@@ -1626,11 +1626,12 @@ export default function DetailedGraphsPage() {
 
   const prefix = isAlarmPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
   const emptyTriggers = allData.temp.map(() => false)
-  const metricDataMap = {
+    const metricDataMap = {
     C2H4: { data: allData.c2h4, triggers: allData.triggersC2H4, latestValue: timeRange.mode === 'live' ? (latest[`${prefix}_C2H4`] ?? latest[`${prefix}_c2h4`]) : allData.latestC2H4 },
     CO2: { data: allData.co2, triggers: allData.triggersCO2, latestValue: timeRange.mode === 'live' ? latest[`${prefix}_CO2`] : allData.latestCO2 },
     O2: { data: allData.o2, triggers: emptyTriggers, latestValue: timeRange.mode === 'live' ? latest[`${prefix}_O2`] : allData.latestO2 },
     temp: { data: allData.temp, triggers: emptyTriggers, latestValue: timeRange.mode === 'live' ? latest[`${prefix}_temp`] : allData.latestTemp },
+    vfd: { data: allData.vfd, triggers: emptyTriggers, latestValue: timeRange.mode === 'live' ? latest[`${prefix}_vfd`] : allData.latestVFD },
   }
 
   const combinedDataMap: Record<MetricKey, number[]> = {
@@ -1776,9 +1777,9 @@ export default function DetailedGraphsPage() {
           )
         }
 
-        // VFD graph — MLH500 only
+        // VFD graph — MLH500 only, not on alarm page
         const isMlh500 = dt.prefix === 'mlh500'
-        if (isMlh500) topCards.push(
+        if (isMlh500 && !isAlarmPage) topCards.push(
           <MetricGraph key="vfd" metricKey="vfd" data={allData.vfd} triggers={emptyTriggers} labels={allData.labels}
             latestValue={timeRange.mode === 'live' ? latest[`${prefix}_vfd`] : allData.latestVFD}
             isLoading={allData.loading} onExpand={() => setExpandedMetric('vfd')} />
