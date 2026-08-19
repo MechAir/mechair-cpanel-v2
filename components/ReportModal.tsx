@@ -746,8 +746,8 @@ const isMlh = deviceId.toLowerCase().startsWith('mlh') || deviceId.toLowerCase()
                         row[`M${m} Temp (°C)`] = parseFloat(mt.toFixed(2))
                         row[`M${m} Humid (%)`] = parseFloat(mh.toFixed(2))
                         if (deviceId.toLowerCase().startsWith('mlh500')) {
-                          const mv = extractMetric(r, `R${m}`, 'vfd' as any)
-                          row[`M${m} VFD (%)`] = parseFloat((isFinite(mv) ? mv : 0).toFixed(1))
+                          const vfdVal = rm?.vfd ?? 0
+                          row[`M${m} VFD (%)`] = parseFloat((isFinite(vfdVal) ? vfdVal : 0).toFixed(1))
                         }
                         tempSum += mt; humidSum += mh; count++
                     }
