@@ -281,8 +281,9 @@ export default function ReportModal({ deviceId, roomId, onClose }: ReportModalPr
     const dt = getDeviceType(deviceId)
     const isCsm = dt.prefix === 'csm'
     const isMlh = dt.prefix === 'mlh'
+    const isMlh500 = dt.prefix === 'mlh500'
     const visibleMetrics = METRICS.filter(m => {
-        if (isMlh || isCsm) return m.key === 'temp' || m.key === 'O2' // O2 = Humidity for MLH/CSM
+        if (isMlh || isMlh500 || isCsm) return m.key === 'temp' || m.key === 'O2' // O2 = Humidity for MLH/MLH500/CSM
         return true
     })
     const visibleMetricKeys = visibleMetrics.map(m => m.key) as MetricKey[]
