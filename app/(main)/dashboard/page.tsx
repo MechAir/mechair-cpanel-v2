@@ -270,7 +270,8 @@ function DeviceCard({
   onDeleteDevice,
   onPowerOffDevice,
   onPowerOnDevice,
-  onSetLocation
+  onSetLocation,
+  enabledRoomsMap
 }: {
   device: Device
   onClick: () => void
@@ -281,7 +282,8 @@ function DeviceCard({
   onDeleteDevice: () => void
   onPowerOffDevice: () => void
   onPowerOnDevice: () => void
-  onSetLocation: () => void
+    onSetLocation: () => void
+  enabledRoomsMap: Record<string, Record<string, boolean>>
 }) {
   const activeRooms = (device.rooms ?? []).filter(r => r.isOn).length
   const lastSeen = new Date(device.lastSeen)
