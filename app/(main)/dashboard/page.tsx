@@ -92,6 +92,18 @@ function GearMenu({
           </button>
           <div className="border-t border-gray-100" />
           <button
+            onClick={e => { e.stopPropagation(); setOpen(false); onSetLocation() }}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#2B8DB8] hover:bg-[#EBF5FB] transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Set Location
+          </button>
+          <div className="border-t border-gray-100" />
+          <button
             onClick={e => { e.stopPropagation(); setOpen(false); onAddSubAdmin() }}
             className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#2B8DB8] hover:bg-[#EBF5FB] transition-colors"
           >
@@ -256,6 +268,7 @@ function DeviceCard({
   onDeleteDevice,
   onPowerOffDevice,
   onPowerOnDevice,
+  onSetLocation,
   enabledRoomsMap
 }: {
   device: Device
@@ -267,6 +280,7 @@ function DeviceCard({
   onDeleteDevice: () => void
   onPowerOffDevice: () => void
   onPowerOnDevice: () => void
+  onSetLocation: () => void
   enabledRoomsMap: Record<string, Record<string, boolean>>
 }) {
   const activeRooms = (device.rooms ?? []).filter(r => r.isOn).length
@@ -578,6 +592,7 @@ export default function DashboardPage() {
   const [deleteDevice, setDeleteDevice] = useState<Device | null>(null)
   const [powerOffDevice, setPowerOffDevice] = useState<Device | null>(null)
   const [powerOnDevice, setPowerOnDevice] = useState<Device | null>(null)
+  const [locationDevice, setLocationDevice] = useState<Device | null>(null)
   const [enabledRoomsMap, setEnabledRoomsMap] = useState<Record<string, Record<string, boolean>>>({})
 
   // ── Owner: User Management ──
@@ -1003,6 +1018,7 @@ export default function DashboardPage() {
               onDeleteDevice={() => setDeleteDevice(device)}
               onPowerOffDevice={() => setPowerOffDevice(device)}
               onPowerOnDevice={() => setPowerOnDevice(device)}
+              onSetLocation={() => setLocationDevice(device)}
               enabledRoomsMap={enabledRoomsMap}
             />
           ))}
@@ -1105,6 +1121,63 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+            {locationDevice && (() => {
+        const LocationModal = () => {
+          const [loc, setLoc] = useState(locationDevice.location === 'Not specified' ? '' : locationDevice.location)
+          const [saving, setSaving] = useState(false)
+          const [error, setError] = useState('')
+
+          const handleSave = async () => {
+            setSaving(true)
+            setError('')
+            try {
+              const res = await fetch(`${API_BASE}/devices/${locationDevice.deviceId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ location: loc.trim() || 'Not specified' })
+              })
+              if (res.ok) {
+                setLocationDevice(null)
+                fetchDevices()
+              } else {
+                setError('Failed to update location')
+              }
+            } catch {
+              setError('Cannot connect to server')
+            } finally {
+              setSaving(false)
+            }
+          }
+
+          return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setLocationDevice(null)}>
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+                <h2 className="text-lg font-semibold text-gray-800 mb-1">Set Location</h2>
+                <p className="text-sm text-gray-500 mb-4">{locationDevice.deviceId}</p>
+                <input
+                  type="text" value={loc} onChange={e => setLoc(e.target.value)}
+                  placeholder="e.g. Himmatnagar, Building 2"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]/40 mb-4"
+                  autoFocus
+                />
+                {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+                <div className="flex gap-3">
+                  <button onClick={() => setLocationDevice(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  <button onClick={handleSave} disabled={saving}
+                    className="flex-1 py-2.5 rounded-xl bg-[#2B8DB8] text-white text-sm font-medium hover:bg-[#24799E] disabled:opacity-50">
+                    {saving ? 'Saving...' : 'Save Location'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        }
+        return <LocationModal />
+      })()}
 
       <div className="border-t border-gray-200 mt-12 py-6">
         <p className="text-center text-gray-400 text-sm">© 2026 Mech Air. All rights reserved.</p>
