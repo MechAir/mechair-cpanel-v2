@@ -32,7 +32,8 @@ function GearMenu({
   onAddSupervisor,
   onDeleteDevice,
   onPowerOffDevice,
-  onPowerOnDevice
+  onPowerOnDevice,
+  onSetLocation
 }: {
   device: Device
   onWifi: () => void
@@ -42,6 +43,7 @@ function GearMenu({
   onDeleteDevice: () => void
   onPowerOffDevice: () => void
   onPowerOnDevice: () => void
+  onSetLocation: () => void
 }) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -268,8 +270,7 @@ function DeviceCard({
   onDeleteDevice,
   onPowerOffDevice,
   onPowerOnDevice,
-  onSetLocation,
-  enabledRoomsMap
+  onSetLocation
 }: {
   device: Device
   onClick: () => void
@@ -281,7 +282,6 @@ function DeviceCard({
   onPowerOffDevice: () => void
   onPowerOnDevice: () => void
   onSetLocation: () => void
-  enabledRoomsMap: Record<string, Record<string, boolean>>
 }) {
   const activeRooms = (device.rooms ?? []).filter(r => r.isOn).length
   const lastSeen = new Date(device.lastSeen)
@@ -330,7 +330,7 @@ function DeviceCard({
         </div>
 
         {/* Gear dropdown (admin only) */}
-        <GearMenu device={device} onWifi={onWifi} onUpdatePins={onUpdatePins} onAddSubAdmin={onAddSubAdmin} onAddSupervisor={onAddSupervisor} onDeleteDevice={onDeleteDevice} onPowerOffDevice={onPowerOffDevice} onPowerOnDevice={onPowerOnDevice} />
+        <GearMenu device={device} onWifi={onWifi} onUpdatePins={onUpdatePins} onAddSubAdmin={onAddSubAdmin} onAddSupervisor={onAddSupervisor} onDeleteDevice={onDeleteDevice} onPowerOffDevice={onPowerOffDevice} onPowerOnDevice={onPowerOnDevice} onSetLocation={onSetLocation} />
       </div>
 
       {/* Room indicators */}
