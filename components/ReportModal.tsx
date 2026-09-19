@@ -64,7 +64,7 @@ const METRICS = [
 
 type MetricKey = 'temp' | 'CO2' | 'O2' | 'C2H4'
 
-const ROOM_PREFIX: Record<string, string> = { '1': 'R1', '2': 'R2', '3': 'R3', '4': 'R4' }
+const ROOM_PREFIX: Record<string, string> = { '1': 'R1', '2': 'R2', '3': 'R3', '4': 'R4', '5': 'R5', '6': 'R6' }
 const TRIGGER_COLOR = '#EF4444'
 
 function extractMetric(r: RangeReading, roomKey: string, key: MetricKey): number {
