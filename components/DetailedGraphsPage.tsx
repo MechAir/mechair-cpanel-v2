@@ -1391,7 +1391,26 @@ export default function DetailedGraphsPage() {
           })
         }
 
-        setLiveStatus('ok')
+        setLiveStatus('connected')
+        // MLH500: seed VFD from standalone device
+        if (getDeviceType(deviceId).prefix === 'mlh500') {
+          const vfdId = deviceId.replace('MLH500', 'VFD500')
+          try {
+            const vfdRes = await fetch(`${API_BASE}/devices/${vfdId}/readings/range?${params.toString()}`)
+            if (vfdRes.ok) {
+              const vfdJson = await vfdRes.json()
+              if (vfdJson.success) {
+                const vfdReadings: RangeReading[] = (vfdJson.data.readings ?? []).slice().sort(
+                  (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                )
+                if (vfdReadings.length > 0) {
+                  const roomKey = isAlarmPage ? 'S7' : (ROOM_PREFIX[roomId] ?? 'R1')
+                  setAllData(prev => ({ ...prev, vfd: vfdReadings.map(r => extractMetric(r, roomKey, 'vfd')) }))
+                }
+              }
+            }
+          } catch {}
+        }
       } catch {
         if (!cancelled) setAllData(prev => ({ ...prev, loading: false }))
       }
@@ -1608,8 +1627,28 @@ export default function DetailedGraphsPage() {
         latestC2H4: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'C2H4') : undefined,
         latestVFD: lastIdx >= 0 ? extractMetric(readings[lastIdx], roomKey, 'vfd') : undefined,
       })
+      // MLH500: overlay VFD from standalone device if available
+      if (vfdDeviceId) {
+        try {
+          const vfdRes = await fetch(buildRangeUrl(vfdDeviceId, range))
+          if (vfdRes.ok) {
+            const vfdJson = await vfdRes.json()
+            if (vfdJson.success) {
+              const vfdReadings: RangeReading[] = (vfdJson.data.readings ?? []).slice().sort(
+                (a: RangeReading, b: RangeReading) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+              )
+              if (vfdReadings.length > 0) {
+                const vfdValues = vfdReadings.map(r => extractMetric(r, roomKey, 'vfd'))
+                const vfdLabels = vfdReadings.map(r => formatLabel(r.timestamp, range.mode))
+                const vfdLastIdx = vfdReadings.length - 1
+                setAllData(prev => ({ ...prev, vfd: vfdValues, latestVFD: vfdValues[vfdLastIdx] }))
+              }
+            }
+          }
+        } catch {}
+      }
     } catch { setAllData(prev => ({ ...prev, loading: false })) }
-  }, [deviceId, roomId])
+  }, [deviceId, roomId, vfdDeviceId])
 
   useEffect(() => {
     if (!isAuthenticated || timeRange.mode === 'live') return
@@ -1778,7 +1817,8 @@ export default function DetailedGraphsPage() {
         }
 
         // VFD graph — MLH500 only, not on alarm page
-        const isMlh500 = dt.prefix === 'mlh500'
+  const isMlh500 = dt.prefix === 'mlh500'
+  const vfdDeviceId = isMlh500 ? deviceId.replace('MLH500', 'VFD500') : ''
         if (isMlh500 && !isAlarmPage) topCards.push(
           <MetricGraph key="vfd" metricKey="vfd" data={allData.vfd} triggers={emptyTriggers} labels={allData.labels}
             latestValue={timeRange.mode === 'live' ? latest[`${prefix}_vfd`] : allData.latestVFD}
