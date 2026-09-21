@@ -1014,7 +1014,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-          {devices.map(device => (
+          {devices.filter(d => !d.deviceId.toLowerCase().startsWith('vfd')).map(device => (
             <DeviceCard
               key={device.deviceId}
               device={device}
