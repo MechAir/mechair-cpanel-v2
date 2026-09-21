@@ -527,7 +527,8 @@ export default function DeviceRoomsPage() {
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   const [s7Data, setS7Data] = useState<{ temp: number; humidity: number } | null>(null)
   const [sysFail, setSysFail] = useState<{ unit1: boolean; unit2: boolean }>({ unit1: false, unit2: false })
-  const [vfdDeviceOnline, setVfdDeviceOnline] = useState<boolean | null>(null)  // null = not checked, true = online, false = offline
+  const [vfdDeviceOnline, setVfdDeviceOnline] = useState<boolean | null>(null)
+  const [vfdExternalData, setVfdExternalData] = useState<Record<number, number>>({})  // room index → vfd %
 
   const user = getUser()
   const canEditWifi = user?.role === 'owner' || user?.role === 'admin'
@@ -584,6 +585,13 @@ export default function DeviceRoomsPage() {
           const ts = data.data.reading.timestamp || data.data.reading.receivedAt || data.data.device?.lastSeen
           const age = ts ? Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime()) : Infinity
           setVfdDeviceOnline(age < 60000)
+          // Extract VFD values per room
+          const vfdMap: Record<number, number> = {}
+          for (let i = 1; i <= 6; i++) {
+            const rm = data.data.reading[`room${i}`]
+            if (rm?.vfd !== undefined) vfdMap[i] = rm.vfd
+          }
+          setVfdExternalData(vfdMap)
         } else {
           setVfdDeviceOnline(false)
         }
@@ -985,6 +993,11 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
  // Display rooms with staged changes applied for preview
   const displayRooms = rooms.map(room => {
     let r = room
+    // Merge VFD from standalone VFD device if available
+    if (isMlh500 && Object.keys(vfdExternalData).length > 0) {
+      const idx = parseInt(room.id.replace('room-', ''), 10)
+      if (vfdExternalData[idx] !== undefined) r = { ...r, vfd: vfdExternalData[idx] }
+    }
     if (!isAuto && (room.id in pendingRelay1 || room.id in pendingRelay2 || room.id in pendingRelay3)) {
       const overrides: Partial<RoomData> = {}
       if (isMlh500) {
