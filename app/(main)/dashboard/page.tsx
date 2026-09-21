@@ -23,6 +23,12 @@ interface Device {
   rooms: Array<{ id: string; name: string; isOn: boolean }>
 }
 
+// Guards against the API returning `rooms` as a number/object/string instead of an array
+const normalizeDevice = (d: any): Device => ({
+  ...d,
+  rooms: Array.isArray(d?.rooms) ? d.rooms : [],
+})
+
 // ─── Gear Dropdown Menu ────────────────────────────────────────────────────────
 function GearMenu({
   device,
@@ -745,7 +751,7 @@ export default function DashboardPage() {
       const res = await fetch(`${API_BASE}/devices`)
       const data = await res.json()
       if (data.success) {
-        setDevices(data.data)
+        setDevices((data.data ?? []).map(normalizeDevice))
         // Fetch enabled-rooms for MLH500 devices
         for (const d of data.data) {
           if (d.deviceId?.toLowerCase().startsWith('mlh500') || d.deviceId?.toLowerCase().startsWith('mlh')) {
@@ -773,7 +779,7 @@ export default function DashboardPage() {
   }, [isAuthenticated])
 
   const handleDeviceClick = (deviceId: string) => router.push(`/device/${deviceId}/${deviceId.toLowerCase().startsWith('mlh') ? 'machines' : deviceId.toLowerCase().startsWith('csm') ? 'units' : 'rooms'}`)
-  const handleDeviceAdded = (device: Device) => setDevices(prev => [device, ...prev])
+  const handleDeviceAdded = (device: Device) => setDevices(prev => [normalizeDevice(device), ...prev])
   const handleDeviceDeleted = (deviceId: string) => setDevices(prev => prev.filter(d => d.deviceId !== deviceId))
   const admin = isAdmin()
 
