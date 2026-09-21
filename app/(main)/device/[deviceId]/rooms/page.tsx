@@ -526,6 +526,7 @@ export default function DeviceRoomsPage() {
   const [pendingResetChanges, setPendingResetChanges] = useState<Record<string, Partial<RoomData>>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   const [s7Data, setS7Data] = useState<{ temp: number; humidity: number } | null>(null)
+  const [sysFail, setSysFail] = useState<{ unit1: boolean; unit2: boolean }>({ unit1: false, unit2: false })
   const [vfdDeviceOnline, setVfdDeviceOnline] = useState<boolean | null>(null)  // null = not checked, true = online, false = offline
 
   const user = getUser()
