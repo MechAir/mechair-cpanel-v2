@@ -581,9 +581,9 @@ export default function DeviceRoomsPage() {
         const res = await fetch(`${API_BASE}/devices/${vfdDeviceId}/readings/latest`)
         const data = await res.json()
         if (data?.data?.reading) {
-          const ts = data.data.reading.timestamp || data.data.reading.receivedAt
-          const age = Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime())
-          setVfdDeviceOnline(age < 60000)  // Online if data received in last 60 seconds
+          const ts = data.data.reading.timestamp || data.data.reading.receivedAt || data.data.device?.lastSeen
+          const age = ts ? Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime()) : Infinity
+          setVfdDeviceOnline(age < 60000)
         } else {
           setVfdDeviceOnline(false)
         }
