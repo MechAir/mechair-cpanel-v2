@@ -1287,6 +1287,8 @@ export default function DetailedGraphsPage() {
   const isAlarmPage = roomId === 's7' || roomId === 'alarm'
   const isMlhDevice = deviceId.toLowerCase().startsWith('mlh')
   const isCsmDevice = deviceId.toLowerCase().startsWith('csm')
+  const isMlh500Device = deviceId.toLowerCase().startsWith('mlh500')
+  const vfdDeviceId = isMlh500Device ? deviceId.replace('MLH500', 'VFD500') : ''
 
   // Use MLH/CSM metric labels (Humidity instead of Carbon, etc.)
   if (isCsmDevice) {
