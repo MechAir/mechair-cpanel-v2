@@ -526,7 +526,7 @@ export default function DeviceRoomsPage() {
   const [pendingResetChanges, setPendingResetChanges] = useState<Record<string, Partial<RoomData>>>({})
   const [enabledRooms, setEnabledRooms] = useState<Record<string, boolean>>({})
   const [s7Data, setS7Data] = useState<{ temp: number; humidity: number } | null>(null)
-  const [sysFail, setSysFail] = useState<{ unit1: boolean; unit2: boolean }>({ unit1: false, unit2: false })
+  const [vfdDeviceOnline, setVfdDeviceOnline] = useState<boolean | null>(null)  // null = not checked, true = online, false = offline
 
   const user = getUser()
   const canEditWifi = user?.role === 'owner' || user?.role === 'admin'
@@ -570,6 +570,28 @@ export default function DeviceRoomsPage() {
     }
     fetchWifi()
   }, [showWifi, deviceId])
+
+  // Check VFD standalone device status (MLH500 only)
+  useEffect(() => {
+    if (!isMlh500) return
+    const vfdDeviceId = deviceId.replace('MLH500', 'VFD500')
+    const checkVfd = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/devices/${vfdDeviceId}/readings/latest`)
+        const data = await res.json()
+        if (data?.data?.reading) {
+          const ts = data.data.reading.timestamp || data.data.reading.receivedAt
+          const age = Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime())
+          setVfdDeviceOnline(age < 60000)  // Online if data received in last 60 seconds
+        } else {
+          setVfdDeviceOnline(false)
+        }
+      } catch { setVfdDeviceOnline(false) }
+    }
+    checkVfd()
+    const interval = setInterval(checkVfd, 30000)
+    return () => clearInterval(interval)
+  }, [deviceId, isMlh500])
 
   // Parse latest reading into rooms — handles both EMS and MLH shapes
   const applyReadingToRooms = (currentRooms: RoomData[], reading: Record<string, any>): RoomData[] => {
@@ -1157,6 +1179,18 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
             )}
           </div>
         </div>
+
+        {/* VFD Standalone Device Status — MLH500 only */}
+        {isMlh500 && vfdDeviceOnline !== null && (
+          <div className="max-w-6xl mb-3">
+            <div className={`rounded-xl px-4 py-2.5 flex items-center gap-3 ${vfdDeviceOnline ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+              <div className={`w-2.5 h-2.5 rounded-full ${vfdDeviceOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+              <span className={`text-xs font-semibold ${vfdDeviceOnline ? 'text-emerald-700' : 'text-red-700'}`}>
+                VFD Sensor Box: {vfdDeviceOnline ? 'Online' : 'Offline'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* S7 Ambient Sensor Bar — MLH only */}
         {isMlh && (
