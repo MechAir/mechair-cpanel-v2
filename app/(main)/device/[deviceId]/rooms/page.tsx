@@ -529,6 +529,14 @@ export default function DeviceRoomsPage() {
   const [sysFail, setSysFail] = useState<{ unit1: boolean; unit2: boolean }>({ unit1: false, unit2: false })
   const [vfdDeviceOnline, setVfdDeviceOnline] = useState<boolean | null>(null)
   const [vfdExternalData, setVfdExternalData] = useState<Record<number, number>>({})  // room index → vfd %
+  const [showVfdWifi, setShowVfdWifi] = useState(false)
+  const [vfdSsid, setVfdSsid] = useState('')
+  const [vfdWifiPass, setVfdWifiPass] = useState('')
+  const [showVfdWifiPass, setShowVfdWifiPass] = useState(false)
+  const [vfdWifiLoading, setVfdWifiLoading] = useState(false)
+  const [vfdWifiSaved, setVfdWifiSaved] = useState(false)
+  const [vfdCurrentSsid, setVfdCurrentSsid] = useState('')
+  const [vfdRssi, setVfdRssi] = useState<number | null>(null)
 
   const user = getUser()
   const canEditWifi = user?.role === 'owner' || user?.role === 'admin'
@@ -592,6 +600,9 @@ export default function DeviceRoomsPage() {
             if (rm?.vfd !== undefined) vfdMap[i] = rm.vfd
           }
           setVfdExternalData(vfdMap)
+          // Extract WiFi info from VFD readings
+          if (data.data.reading.wifi_ssid) setVfdCurrentSsid(data.data.reading.wifi_ssid)
+          if (data.data.reading.wifi_rssi !== undefined) setVfdRssi(data.data.reading.wifi_rssi)
         } else {
           setVfdDeviceOnline(false)
         }
@@ -601,6 +612,29 @@ export default function DeviceRoomsPage() {
     const interval = setInterval(checkVfd, 30000)
     return () => clearInterval(interval)
   }, [deviceId, isMlh500])
+
+  // Pre-fill VFD WiFi modal
+  useEffect(() => {
+    if (!showVfdWifi) return
+    const vfdDeviceId = deviceId.replace('MLH500', 'VFD500')
+    const fetchVfdWifi = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/devices/${vfdDeviceId}/settings/wifi`)
+        const data = await res.json()
+        if (data.success && data.data?.wifi) {
+          setVfdSsid(data.data.wifi.ssid || vfdCurrentSsid || '')
+          setVfdWifiPass(data.data.wifi.password || '')
+        } else {
+          setVfdSsid(vfdCurrentSsid || '')
+          setVfdWifiPass('')
+        }
+      } catch {
+        setVfdSsid(vfdCurrentSsid || '')
+        setVfdWifiPass('')
+      }
+    }
+    fetchVfdWifi()
+  }, [showVfdWifi, deviceId, vfdCurrentSsid])
 
   // Parse latest reading into rooms — handles both EMS and MLH shapes
   const applyReadingToRooms = (currentRooms: RoomData[], reading: Record<string, any>): RoomData[] => {
@@ -1093,6 +1127,70 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
         </div>
       )}
 
+      {/* VFD WiFi Modal */}
+      {showVfdWifi && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div><h2 className="text-base font-semibold text-gray-800">VFD Sensor Box WiFi</h2><p className="text-xs text-gray-400 mt-0.5">{deviceId.replace('MLH500', 'VFD500')}</p></div>
+              <button onClick={() => setShowVfdWifi(false)} className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {vfdCurrentSsid && (
+                <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-500">
+                  Currently connected: <span className="font-semibold text-gray-700">{vfdCurrentSsid}</span>
+                  {vfdRssi !== null && <span className="ml-2">({vfdRssi} dBm)</span>}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">SSID</label>
+                <input type="text" value={vfdSsid} onChange={e => setVfdSsid(e.target.value)} placeholder="Network name" autoComplete="new-password"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+                <div className="relative">
+                  <input type={showVfdWifiPass ? 'text' : 'password'} value={vfdWifiPass} onChange={e => setVfdWifiPass(e.target.value)} placeholder="WiFi password" autoComplete="new-password"
+                    className="w-full px-4 py-2.5 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2B8DB8]" />
+                  <button onClick={() => setShowVfdWifiPass(!showVfdWifiPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showVfdWifiPass ? "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" : "M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"} />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <p className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2">If the new credentials are wrong, the device will automatically roll back to the previous working WiFi.</p>
+            </div>
+            <div className="flex gap-3 p-5 pt-0">
+              <button onClick={() => setShowVfdWifi(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50">Cancel</button>
+              <button onClick={async () => {
+                if (!vfdSsid.trim()) return; setVfdWifiLoading(true)
+                const vfdDeviceId = deviceId.replace('MLH500', 'VFD500')
+                try {
+                  const res = await fetch(`${API_BASE}/devices/${vfdDeviceId}/settings/wifi`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wifi: { ssid: vfdSsid.trim(), password: vfdWifiPass } })
+                  })
+                  const data = await res.json()
+                  if (data.success) {
+                    setVfdWifiSaved(true)
+                    setTimeout(() => { setVfdWifiSaved(false); setShowVfdWifi(false) }, 1200)
+                    pushToast({ type: 'success', title: 'VFD WiFi Sent', message: 'Credentials pushed to VFD sensor box.' })
+                  } else {
+                    pushToast({ type: 'error', title: 'Save Failed', message: data.message || 'Unknown error' })
+                  }
+                } catch { pushToast({ type: 'error', title: 'Network Error', message: 'Failed to reach server.' }) } finally { setVfdWifiLoading(false) }
+              }} disabled={vfdWifiLoading || !vfdSsid.trim()} className="flex-1 px-4 py-2.5 bg-[#2B8DB8] text-white rounded-xl text-sm font-medium hover:bg-[#2478a0] disabled:opacity-50 flex items-center justify-center gap-2">
+                {vfdWifiSaved ? 'Sent ✓' : vfdWifiLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModeConfirm && (
         <ConfirmModal title="Change Mode"
           message={`Switch from ${isAuto ? 'Auto' : 'Manual'} to ${isAuto ? 'Manual' : 'Auto'} mode?`}
@@ -1197,11 +1295,26 @@ pushToast({ type: 'success', title: 'Mode Changed', message: `Switched to ${newM
         {/* VFD Standalone Device Status — MLH500 only */}
         {isMlh500 && vfdDeviceOnline !== null && (
           <div className="max-w-6xl mb-3">
-            <div className={`rounded-xl px-4 py-2.5 flex items-center gap-3 ${vfdDeviceOnline ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
-              <div className={`w-2.5 h-2.5 rounded-full ${vfdDeviceOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-              <span className={`text-xs font-semibold ${vfdDeviceOnline ? 'text-emerald-700' : 'text-red-700'}`}>
-                VFD Sensor Box: {vfdDeviceOnline ? 'Online' : 'Offline'}
-              </span>
+            <div className={`rounded-xl px-4 py-2.5 flex items-center justify-between ${vfdDeviceOnline ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-2.5 h-2.5 rounded-full ${vfdDeviceOnline ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+                <span className={`text-xs font-semibold ${vfdDeviceOnline ? 'text-emerald-700' : 'text-red-700'}`}>
+                  VFD Sensor Box: {vfdDeviceOnline ? 'Online' : 'Offline'}
+                </span>
+                {vfdCurrentSsid && (
+                  <span className="text-[10px] text-gray-400 hidden sm:inline">
+                    WiFi: {vfdCurrentSsid} {vfdRssi !== null && `(${vfdRssi} dBm)`}
+                  </span>
+                )}
+              </div>
+              {canEditWifi && (
+                <button onClick={() => setShowVfdWifi(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/80 border border-gray-200 hover:bg-white text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0" />
+                  </svg>
+                  WiFi
+                </button>
+              )}
             </div>
           </div>
         )}
