@@ -26,7 +26,7 @@ interface RecipeStep { days: number; c2h4_ppm: number }
 interface Recipe { id: string; name: string; steps: RecipeStep[] }
 
 // MLH types
-type MlhTabType = 'timings' | 'manual' | 'calibration' | 'enabled-rooms' | 'limits'
+type MlhTabType = 'timings' | 'manual' | 'cycle' | 'calibration' | 'enabled-rooms' | 'limits'
 type MlhRoomType = string
 interface MlhRoomSettings {
   compDelayTime: TimingField
@@ -43,6 +43,7 @@ interface Mlh500RoomSettings {
   comp2HumidSetpoint: number; comp2HumidTriggerDiff: number
 }
 interface Mlh500ManualSettings { manualFanOnTime: TimingField; manualComp1OnTime: TimingField; manualComp2OnTime: TimingField }
+interface Mlh500CycleSettings { comp1OnTime: TimingField; comp1OffTime: TimingField; comp2OnTime: TimingField; comp2OffTime: TimingField }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const defaultEmsSettings: EmsRoomSettings = {
@@ -71,6 +72,10 @@ const defaultMlh500Settings: Mlh500RoomSettings = {
   comp1TempSetpoint: 10.0, comp1TempTriggerDiff: 2.0,
   comp2TempSetpoint: 15.0, comp2TempTriggerDiff: 2.0,
   comp2HumidSetpoint: 35.0, comp2HumidTriggerDiff: 5.0,
+}
+const defaultMlh500Cycle: Mlh500CycleSettings = {
+  comp1OnTime: { value: 2, unit: 'hr' }, comp1OffTime: { value: 30, unit: 'min' },
+  comp2OnTime: { value: 2, unit: 'hr' }, comp2OffTime: { value: 30, unit: 'min' },
 }
 const defaultMlh500Manual: Mlh500ManualSettings = {
   manualFanOnTime: { value: 30, unit: 'sec' }, manualComp1OnTime: { value: 30, unit: 'sec' }, manualComp2OnTime: { value: 30, unit: 'sec' },
@@ -790,6 +795,96 @@ function Mlh500ManualTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRo
       <TimingRow label="Indoor Fan ON Time:" field={cur.manualFanOnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualFanOnTime: { ...p[activeRoom].manualFanOnTime, ...u } } }))} />
       <TimingRow label="Comp1 Cooling ON Time:" field={cur.manualComp1OnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualComp1OnTime: { ...p[activeRoom].manualComp1OnTime, ...u } } }))} />
       <TimingRow label="Comp2 Heating ON Time:" field={cur.manualComp2OnTime} wide readOnly={readOnly} onChange={u => setSettings(p => ({ ...p, [activeRoom]: { ...p[activeRoom], manualComp2OnTime: { ...p[activeRoom].manualComp2OnTime, ...u } } }))} />
+      {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
+    </div>
+  )
+}
+
+// MLH500 compressor cycle time: max ON time, then forced OFF (rest) time, per compressor
+function Mlh500CycleTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoomType; deviceId: string; readOnly?: boolean }) {
+  const unitNames: TimeUnit[] = ['sec', 'min', 'hr']
+  const unitMap: Record<string, number> = { sec: 0, min: 1, hr: 2 }
+  const toField = (v: any, u: any, def: TimingField): TimingField => {
+    const value = typeof v === 'number' && v > 0 ? v : def.value
+    const unit = typeof u === 'number' ? (unitNames[u] ?? def.unit) : (unitNames.includes(u) ? u : def.unit)
+    return { value, unit }
+  }
+  const parse = (raw: any): Mlh500CycleSettings => ({
+    comp1OnTime: toField(raw?.comp1OnValue, raw?.comp1OnUnit, defaultMlh500Cycle.comp1OnTime),
+    comp1OffTime: toField(raw?.comp1OffValue, raw?.comp1OffUnit, defaultMlh500Cycle.comp1OffTime),
+    comp2OnTime: toField(raw?.comp2OnValue, raw?.comp2OnUnit, defaultMlh500Cycle.comp2OnTime),
+    comp2OffTime: toField(raw?.comp2OffValue, raw?.comp2OffUnit, defaultMlh500Cycle.comp2OffTime),
+  })
+  const [settings, setSettings] = useState<Record<MlhRoomType, Mlh500CycleSettings>>(Object.fromEntries(mlhRooms.map(r => [r, { ...defaultMlh500Cycle }])) as Record<MlhRoomType, Mlh500CycleSettings>)
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    fetch(`${API}/devices/${deviceId}/settings/cycle-timings`).then(r => r.json()).then(data => {
+      const incoming = data?.data?.cycleSettings
+      if (data.success && incoming) {
+        setSettings(prev => { const u = { ...prev }; for (const room of mlhRooms) { if (incoming[room]) u[room] = parse(incoming[room]) } return u })
+      }
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [deviceId])
+  useIoT(
+    [`devices/${deviceId}/settings/cycle-timings`],
+    useCallback(({ payload }) => {
+      const incoming = payload?.cycleSettings ?? payload
+      if (incoming && typeof incoming === 'object' && incoming['Room 1'] !== undefined) {
+        setSettings(prev => { const u = { ...prev }; for (const room of mlhRooms) { if (incoming[room]) u[room] = parse(incoming[room]) } return u })
+      }
+    }, [])
+  )
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const handleSave = async () => {
+    for (const room of mlhRooms) {
+      const s = settings[room]
+      if ([s.comp1OnTime, s.comp1OffTime, s.comp2OnTime, s.comp2OffTime].some(f => !f.value || f.value <= 0)) {
+        setError(`${room.replace(/Room/gi, 'Machine')}: ON and OFF times must be greater than 0`)
+        return
+      }
+    }
+    setError('')
+    const payload: Record<string, any> = {}
+    for (const room of mlhRooms) {
+      const s = settings[room]
+      payload[room] = {
+        comp1OnValue: s.comp1OnTime.value, comp1OnUnit: unitMap[s.comp1OnTime.unit] ?? 2,
+        comp1OffValue: s.comp1OffTime.value, comp1OffUnit: unitMap[s.comp1OffTime.unit] ?? 1,
+        comp2OnValue: s.comp2OnTime.value, comp2OnUnit: unitMap[s.comp2OnTime.unit] ?? 2,
+        comp2OffValue: s.comp2OffTime.value, comp2OffUnit: unitMap[s.comp2OffTime.unit] ?? 1,
+      }
+    }
+    try {
+      setSaving(true)
+      const res = await fetch(`${API}/devices/${deviceId}/settings/cycle-timings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cycleSettings: payload }) })
+      if (!res.ok) throw new Error(`Save failed (${res.status})`)
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    } catch (e: any) {
+      setError(e?.message || 'Save failed')
+    } finally { setSaving(false) }
+  }
+  if (!loaded) return <div className="text-center py-8 text-gray-400">Loading...</div>
+  const cur = settings[activeRoom] ?? defaultMlh500Cycle
+  const set = (key: keyof Mlh500CycleSettings, val: Partial<TimingField>) => setSettings(p => ({ ...p, [activeRoom]: { ...(p[activeRoom] ?? defaultMlh500Cycle), [key]: { ...(p[activeRoom] ?? defaultMlh500Cycle)[key], ...val } } }))
+  return (
+    <div className="px-3 sm:px-8 py-4 sm:py-6">
+      <p className="text-sm text-gray-500 mb-5">In AUTO mode, if a compressor runs for the full ON time without reaching its setpoint, it is switched OFF for the OFF time to rest, then starts again.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6 items-start">
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp1 Cooling</p>
+          <TimingRow label="Max ON Time:" field={cur.comp1OnTime} readOnly={readOnly} onChange={u => set('comp1OnTime', u)} />
+          <TimingRow label="Rest OFF Time:" field={cur.comp1OffTime} readOnly={readOnly} onChange={u => set('comp1OffTime', u)} />
+        </div>
+        <div className="space-y-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp2 Heating</p>
+          <TimingRow label="Max ON Time:" field={cur.comp2OnTime} readOnly={readOnly} onChange={u => set('comp2OnTime', u)} />
+          <TimingRow label="Rest OFF Time:" field={cur.comp2OffTime} readOnly={readOnly} onChange={u => set('comp2OffTime', u)} />
+        </div>
+      </div>
+      {error && <p className="pt-4 text-sm font-semibold text-red-600">{error}</p>}
       {!readOnly && <div className="pt-6"><SaveButton saving={saving} saved={saved} onClick={handleSave} /></div>}
     </div>
   )
@@ -1746,6 +1841,7 @@ export default function SettingsPage() {
   const mlhTabs: { key: MlhTabType; label: string; short: string }[] = [
     { key: 'timings', label: 'Setpoint & Timings', short: 'Setpoints' },
     { key: 'manual', label: 'Manual Settings', short: 'Manual' },
+    ...(isMlh500 ? [{ key: 'cycle' as MlhTabType, label: 'Cycle Time', short: 'Cycle' }] : []),
     { key: 'calibration', label: 'Calibration', short: 'Calibrate' },
     { key: 'enabled-rooms', label: 'Enable Machines', short: 'Machines' },
     { key: 'limits', label: 'Email & Hooter Limits', short: 'Limits' },
@@ -1839,6 +1935,7 @@ export default function SettingsPage() {
         {isMlh500 && activeMlhTab === 'timings' && <Mlh500TimingsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && !isMlh500 && activeMlhTab === 'manual' && <MlhManualTab key={`manual-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh500 && activeMlhTab === 'manual' && <Mlh500ManualTab key={`manual500-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
+        {isMlh500 && activeMlhTab === 'cycle' && <Mlh500CycleTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'calibration' && <MlhCalibrationTab key={`mlh-calib-${activeMlhRoom}`} activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'enabled-rooms' && <MlhEnabledRoomsTab deviceId={deviceId} readOnly={readOnly} />}
         {isMlh && activeMlhTab === 'limits' && <MlhLimitsTab activeRoom={activeMlhRoom} deviceId={deviceId} readOnly={readOnly} />}
