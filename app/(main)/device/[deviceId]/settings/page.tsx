@@ -43,7 +43,7 @@ interface Mlh500RoomSettings {
   comp2HumidSetpoint: number; comp2HumidTriggerDiff: number
 }
 interface Mlh500ManualSettings { manualFanOnTime: TimingField; manualComp1OnTime: TimingField; manualComp2OnTime: TimingField }
-interface Mlh500CycleSettings { comp1OnTime: TimingField; comp1OffTime: TimingField; comp2OnTime: TimingField; comp2OffTime: TimingField }
+interface Mlh500CycleSettings { comp1Enabled: boolean; comp2Enabled: boolean; comp1OnTime: TimingField; comp1OffTime: TimingField; comp2OnTime: TimingField; comp2OffTime: TimingField }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const defaultEmsSettings: EmsRoomSettings = {
@@ -74,6 +74,7 @@ const defaultMlh500Settings: Mlh500RoomSettings = {
   comp2HumidSetpoint: 35.0, comp2HumidTriggerDiff: 5.0,
 }
 const defaultMlh500Cycle: Mlh500CycleSettings = {
+  comp1Enabled: true, comp2Enabled: true,
   comp1OnTime: { value: 2, unit: 'hr' }, comp1OffTime: { value: 30, unit: 'min' },
   comp2OnTime: { value: 2, unit: 'hr' }, comp2OffTime: { value: 30, unit: 'min' },
 }
@@ -810,6 +811,8 @@ function Mlh500CycleTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoo
     return { value, unit }
   }
   const parse = (raw: any): Mlh500CycleSettings => ({
+    comp1Enabled: raw?.comp1Enabled !== false,
+    comp2Enabled: raw?.comp2Enabled !== false,
     comp1OnTime: toField(raw?.comp1OnValue, raw?.comp1OnUnit, defaultMlh500Cycle.comp1OnTime),
     comp1OffTime: toField(raw?.comp1OffValue, raw?.comp1OffUnit, defaultMlh500Cycle.comp1OffTime),
     comp2OnTime: toField(raw?.comp2OnValue, raw?.comp2OnUnit, defaultMlh500Cycle.comp2OnTime),
@@ -851,6 +854,7 @@ function Mlh500CycleTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoo
     for (const room of mlhRooms) {
       const s = settings[room]
       payload[room] = {
+        comp1Enabled: s.comp1Enabled, comp2Enabled: s.comp2Enabled,
         comp1OnValue: s.comp1OnTime.value, comp1OnUnit: unitMap[s.comp1OnTime.unit] ?? 2,
         comp1OffValue: s.comp1OffTime.value, comp1OffUnit: unitMap[s.comp1OffTime.unit] ?? 1,
         comp2OnValue: s.comp2OnTime.value, comp2OnUnit: unitMap[s.comp2OnTime.unit] ?? 2,
@@ -868,20 +872,39 @@ function Mlh500CycleTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoo
   }
   if (!loaded) return <div className="text-center py-8 text-gray-400">Loading...</div>
   const cur = settings[activeRoom] ?? defaultMlh500Cycle
-  const set = (key: keyof Mlh500CycleSettings, val: Partial<TimingField>) => setSettings(p => ({ ...p, [activeRoom]: { ...(p[activeRoom] ?? defaultMlh500Cycle), [key]: { ...(p[activeRoom] ?? defaultMlh500Cycle)[key], ...val } } }))
+  const setEnabled = (key: 'comp1Enabled' | 'comp2Enabled', val: boolean) => setSettings(p => ({ ...p, [activeRoom]: { ...(p[activeRoom] ?? defaultMlh500Cycle), [key]: val } }))
+  const Toggle = ({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) => (
+    <button type="button" disabled={readOnly} onClick={() => !readOnly && onChange(!on)}
+      className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${on ? 'bg-emerald-600' : 'bg-gray-300'} ${readOnly ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}>
+      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${on ? 'translate-x-8' : 'translate-x-1'}`} />
+    </button>
+  )
+  const set = (key: 'comp1OnTime' | 'comp1OffTime' | 'comp2OnTime' | 'comp2OffTime', val: Partial<TimingField>) => setSettings(p => ({ ...p, [activeRoom]: { ...(p[activeRoom] ?? defaultMlh500Cycle), [key]: { ...(p[activeRoom] ?? defaultMlh500Cycle)[key], ...val } } }))
   return (
     <div className="px-3 sm:px-8 py-4 sm:py-6">
-      <p className="text-sm text-gray-500 mb-5">In AUTO mode, if a compressor runs for the full ON time without reaching its setpoint, it is switched OFF for the OFF time to rest, then starts again.</p>
+      <p className="text-sm text-gray-500 mb-5">In AUTO mode, if a compressor runs for the full ON time without reaching its setpoint, it is switched OFF for the OFF time to rest, then starts again. Turn the switch OFF to let that compressor run until its setpoint as before.</p>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6 items-start">
         <div className="space-y-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp1 Cooling</p>
-          <TimingRow label="Max ON Time:" field={cur.comp1OnTime} readOnly={readOnly} onChange={u => set('comp1OnTime', u)} />
-          <TimingRow label="Rest OFF Time:" field={cur.comp1OffTime} readOnly={readOnly} onChange={u => set('comp1OffTime', u)} />
+          <div className="flex items-center gap-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp1 Cooling</p>
+            <Toggle on={cur.comp1Enabled} onChange={v => setEnabled('comp1Enabled', v)} />
+            <span className={`text-xs font-semibold ${cur.comp1Enabled ? 'text-emerald-700' : 'text-gray-400'}`}>{cur.comp1Enabled ? 'Cycle time ON' : 'Cycle time OFF'}</span>
+          </div>
+          <div className={cur.comp1Enabled ? 'space-y-5' : 'space-y-5 opacity-50'}>
+            <TimingRow label="Max ON Time:" field={cur.comp1OnTime} readOnly={readOnly} onChange={u => set('comp1OnTime', u)} />
+            <TimingRow label="Rest OFF Time:" field={cur.comp1OffTime} readOnly={readOnly} onChange={u => set('comp1OffTime', u)} />
+          </div>
         </div>
         <div className="space-y-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp2 Heating</p>
-          <TimingRow label="Max ON Time:" field={cur.comp2OnTime} readOnly={readOnly} onChange={u => set('comp2OnTime', u)} />
-          <TimingRow label="Rest OFF Time:" field={cur.comp2OffTime} readOnly={readOnly} onChange={u => set('comp2OffTime', u)} />
+          <div className="flex items-center gap-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Comp2 Heating</p>
+            <Toggle on={cur.comp2Enabled} onChange={v => setEnabled('comp2Enabled', v)} />
+            <span className={`text-xs font-semibold ${cur.comp2Enabled ? 'text-emerald-700' : 'text-gray-400'}`}>{cur.comp2Enabled ? 'Cycle time ON' : 'Cycle time OFF'}</span>
+          </div>
+          <div className={cur.comp2Enabled ? 'space-y-5' : 'space-y-5 opacity-50'}>
+            <TimingRow label="Max ON Time:" field={cur.comp2OnTime} readOnly={readOnly} onChange={u => set('comp2OnTime', u)} />
+            <TimingRow label="Rest OFF Time:" field={cur.comp2OffTime} readOnly={readOnly} onChange={u => set('comp2OffTime', u)} />
+          </div>
         </div>
       </div>
       {error && <p className="pt-4 text-sm font-semibold text-red-600">{error}</p>}
