@@ -832,7 +832,31 @@ function Mlh500CycleTab({ activeRoom, deviceId, readOnly }: { activeRoom: MlhRoo
   }, [deviceId])
   useIoT(
     [`devices/${deviceId}/settings/cycle-timings`],
-    useCallback(({ payload }) => {
+        useCallback(({ payload }) => {
+      // Device sends the SHORT format: {"c":"c1on,u,c1off,u,c2on,u,c2off,u[,c1en,c2en];...;..."}
+      // (6 groups, one per machine, empty group = no change)
+      if (typeof payload?.c === 'string') {
+        const groups = payload.c.split(';')
+        setSettings(prev => {
+          const u = { ...prev }
+          mlhRooms.forEach((room, i) => {
+            const g = groups[i]
+            if (!g) return
+            const v = g.split(',').map(Number)
+            if ((v.length !== 8 && v.length !== 10) || v.some(n => isNaN(n))) return
+            const old = prev[room]
+            u[room] = parse({
+              comp1OnValue: v[0], comp1OnUnit: v[1], comp1OffValue: v[2], comp1OffUnit: v[3],
+              comp2OnValue: v[4], comp2OnUnit: v[5], comp2OffValue: v[6], comp2OffUnit: v[7],
+              comp1Enabled: v.length === 10 ? v[8] === 1 : old.comp1Enabled,
+              comp2Enabled: v.length === 10 ? v[9] === 1 : old.comp2Enabled,
+            })
+          })
+          return u
+        })
+        return
+      }
+      // Old long format (kept for safety)
       const incoming = payload?.cycleSettings ?? payload
       if (incoming && typeof incoming === 'object' && incoming['Room 1'] !== undefined) {
         setSettings(prev => { const u = { ...prev }; for (const room of mlhRooms) { if (incoming[room]) u[room] = parse(incoming[room]) } return u })
